@@ -1,0 +1,31 @@
+## Ignore technician signature images but keep the folder
+backend/uploads/signature-staff/**
+!backend/uploads/signature-staff/.gitkeep
+node_modules
+
+# Environment variables
+.env.production
+backend/.env
+backend/.env.example
+backend/.env.production
+frontend/.env
+frontend/.env.production
+frontend/.env.development
+
+# Ignore backend runtime logs
+backend/logs/
+*.log
+
+# Ignore generated PM report PDFs (each user generates their own)
+backend/uploads/pm-reports/*.pdf
+
+# Ignore signed PM reports
+backend/uploads/signed-pm-reports/*
+!backend/uploads/signed-pm-reports/.gitkeep
+
+# Ignore user signature images
+backend/uploads/signature/*.png
+
+# OS files
+.DS_Store
+Thumbs.db

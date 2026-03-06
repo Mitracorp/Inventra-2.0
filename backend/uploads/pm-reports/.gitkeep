@@ -1,0 +1,2 @@
+# This file ensures the pm-reports directory is tracked in Git
+# PDF files in this directory are ignored (see .gitignore)
