@@ -248,8 +248,7 @@ const createAssetWithDetails = async (req, res, next, importCache = null) => {
     console.log('Creating asset with complete details:', completeData);
 
     // Validate required fields
-    if (!completeData.project_reference_num || !completeData.serial_number || 
-        !completeData.tag_id || !completeData.item_name) {
+    if (!completeData.project_reference_num || !completeData.serial_number || !completeData.tag_id || !completeData.item_name) {
       console.log('Validation failed - missing required fields');
       return res.status(400).json({
         success: false,

@@ -1,0 +1,5 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/ivmscom/public_html/test.inventra.ivms2006.com/app-staging/
+    - /bin/cp -R * $DEPLOYPATH
