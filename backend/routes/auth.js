@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const {
   register,
   login,
+  microsoftLogin,
   getProfile,
   updateProfile,
   changePassword,
@@ -109,6 +110,14 @@ const loginValidationRules = [
     .withMessage('Password is required')
 ];
 
+const microsoftLoginValidationRules = [
+  body('idToken')
+    .notEmpty()
+    .withMessage('Microsoft ID token is required')
+    .isString()
+    .withMessage('Microsoft ID token must be a string')
+];
+
 const updateProfileValidationRules = [
   body('firstName')
     .optional()
@@ -150,6 +159,12 @@ router.post('/login',
   loginValidationRules, 
   handleValidationErrors, 
   login
+);
+
+router.post('/microsoft-login',
+  microsoftLoginValidationRules,
+  handleValidationErrors,
+  microsoftLogin
 );
 
 // Protected routes

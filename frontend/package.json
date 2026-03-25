@@ -5,6 +5,7 @@
   "description": "Frontend for Inventra Asset Management System",
   "homepage": "https://inventra.ivms2006.com",
   "dependencies": {
+    "@azure/msal-browser": "^4.30.0",
     "html2pdf.js": "^0.12.1",
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",

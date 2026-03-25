@@ -14,13 +14,13 @@ const Dashboard = () => {
   
   // State to track which cards are expanded (default: all minimized)
   const [expandedCards, setExpandedCards] = useState({
-    deviceAnalysis: false,
-    customerDistribution: false,
-    modelDistribution: false,
-    revenueByCategory: false,
-    warrantyTimeline: false,
-    peripheralDistribution: false,
-    recentActivity: false
+    deviceAnalysis: true,
+    customerDistribution: true,
+    modelDistribution: true,
+    revenueByCategory: true,
+    warrantyTimeline: true,
+    peripheralDistribution: true,
+    recentActivity: true
   });
   
   // Define adjacent card pairs
@@ -273,6 +273,65 @@ const Dashboard = () => {
     ? Math.max(...revenueByCategory.map(item => item.revenue))
     : 0;
 
+  const activeAssetsRate = totalAssets > 0 ? ((activeAssets / totalAssets) * 100).toFixed(1) : '0.0';
+  const inactiveAssets = Math.max(totalAssets - activeAssets, 0);
+  const inactiveAssetsRate = totalAssets > 0 ? ((inactiveAssets / totalAssets) * 100).toFixed(1) : '0.0';
+  const assetsPerCustomer = totalCustomers > 0 ? (totalAssets / totalCustomers).toFixed(1) : '0.0';
+  const avgAssetValue = totalAssets > 0 ? totalValue / totalAssets : 0;
+  const peripheralsPerAsset = totalAssets > 0 ? (totalPeripherals / totalAssets).toFixed(2) : '0.00';
+
+  const statCards = [
+    {
+      key: 'assets',
+      label: 'Total Assets',
+      value: totalAssets.toLocaleString('en-MY'),
+      meta: `${assetsPerCustomer} assets per customer`,
+      icon: Package,
+      iconSize: 30
+    },
+    {
+      key: 'customers',
+      label: 'Total Customers',
+      value: totalCustomers.toLocaleString('en-MY'),
+      meta: totalCustomers > 0 ? 'Active project base' : 'No customer records yet',
+      icon: Users,
+      iconSize: 30
+    },
+    {
+      key: 'active',
+      label: 'Active Assets',
+      value: activeAssets.toLocaleString('en-MY'),
+      meta: `${activeAssetsRate}% of total assets`,
+      icon: TrendingUp,
+      iconSize: 30
+    },
+    {
+      key: 'value',
+      label: 'Total Value',
+      value: totalValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      meta: `Avg RM ${avgAssetValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per asset`,
+      icon: DollarSign,
+      iconSize: 30,
+      isCurrency: true
+    },
+    {
+      key: 'peripherals',
+      label: 'Total Peripherals',
+      value: totalPeripherals.toLocaleString('en-MY'),
+      meta: `${peripheralsPerAsset} peripherals per asset`,
+      icon: Monitor,
+      iconSize: 30
+    },
+    {
+      key: 'inactive',
+      label: 'Inactive Assets',
+      value: inactiveAssets.toLocaleString('en-MY'),
+      meta: `${inactiveAssetsRate}% of total assets`,
+      icon: AlertCircle,
+      iconSize: 30
+    }
+  ];
+
   // Find max total assets across all customers for scaling
   const maxCustomerAssets = customersByCategory && Object.keys(customersByCategory).length > 0
     ? Math.max(...Object.values(customersByCategory).map(c => c.total))
@@ -361,71 +420,25 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Package size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalAssets}</div>
-            <div className="stat-label">Total Assets</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Users size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalCustomers}</div>
-            <div className="stat-label">Total Customers</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <TrendingUp size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{activeAssets}</div>
-            <div className="stat-label">Active Assets</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <BarChart3 size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-              <span style={{ 
-                fontSize: '0.5em', 
-                fontWeight: '900',
-                background: 'rgba(107, 114, 128, 0.12)',
-                border: '1px solid rgba(107, 114, 128, 0.3)',
-                color: '#000000',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                display: 'inline-block',
-                lineHeight: '1.2'
-              }}>RM</span>
-              <span style={{ letterSpacing: '1px' }}>{totalValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        {statCards.map((item) => {
+          const IconComponent = item.icon;
+          return (
+            <div key={item.key} className={`stat-card stat-card--${item.key}`}>
+              <div className="stat-chip">KPI</div>
+              <div className="stat-icon">
+                <IconComponent size={item.iconSize || 30} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-label">{item.label}</div>
+                <div className="stat-number">
+                  {item.isCurrency && <span className="currency-tag">RM</span>}
+                  <span>{item.value}</span>
+                </div>
+                <div className="stat-meta">{item.meta}</div>
+              </div>
             </div>
-            <div className="stat-label">Total Value</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Monitor size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalPeripherals}</div>
-            <div className="stat-label">Total Peripherals</div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       <div className="dashboard-charts">

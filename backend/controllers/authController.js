@@ -1,6 +1,32 @@
 const User = require('../models/User');
 const { formatResponse, generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
+
+const azureJwksClient = jwksClient({
+  jwksUri: 'https://login.microsoftonline.com/common/discovery/v2.0/keys',
+  cache: true,
+  cacheMaxEntries: 10,
+  cacheMaxAge: 10 * 60 * 1000,
+  rateLimit: true,
+  jwksRequestsPerMinute: 10
+});
+
+const getAzureSigningKey = (header, callback) => {
+  if (!header || !header.kid) {
+    return callback(new Error('Missing token key id'));
+  }
+
+  azureJwksClient.getSigningKey(header.kid, (error, key) => {
+    if (error) {
+      return callback(error);
+    }
+
+    const signingKey = key.publicKey || key.rsaPublicKey;
+    callback(null, signingKey);
+  });
+};
 
 /**
  * User registration
@@ -93,6 +119,115 @@ const login = async (req, res, next) => {
   } catch (error) {
     logger.error('Error in login:', error);
     next(error);
+  }
+};
+
+/**
+ * Microsoft Azure login (OIDC ID token exchange)
+ */
+const microsoftLogin = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    const azureClientId = process.env.AZURE_CLIENT_ID;
+
+    if (!azureClientId) {
+      return res.status(500).json(
+        formatResponse(false, null, 'Azure login is not configured on the server')
+      );
+    }
+
+    if (!idToken || typeof idToken !== 'string') {
+      return res.status(400).json(
+        formatResponse(false, null, 'Microsoft ID token is required')
+      );
+    }
+
+    const verifiedPayload = await new Promise((resolve, reject) => {
+      jwt.verify(
+        idToken,
+        getAzureSigningKey,
+        {
+          algorithms: ['RS256'],
+          audience: azureClientId,
+          clockTolerance: 5
+        },
+        (error, payload) => {
+          if (error) {
+            return reject(error);
+          }
+          resolve(payload);
+        }
+      );
+    });
+
+    const issuer = verifiedPayload.iss || '';
+    const issuerIsAllowed = /^https:\/\/login\.microsoftonline\.com\/[a-zA-Z0-9-]+\/v2\.0$/.test(issuer);
+    if (!issuerIsAllowed) {
+      return res.status(401).json(
+        formatResponse(false, null, 'Invalid Microsoft token issuer')
+      );
+    }
+
+    const email = (verifiedPayload.preferred_username || verifiedPayload.email || verifiedPayload.upn || '').toLowerCase();
+    if (!email) {
+      return res.status(400).json(
+        formatResponse(false, null, 'Microsoft account email is missing from token')
+      );
+    }
+
+    let user = await User.findByEmail(email);
+    const autoProvisionEnabled = String(process.env.AZURE_AUTO_PROVISION_USERS || 'false').toLowerCase() === 'true';
+
+    if (!user && autoProvisionEnabled) {
+      const firstName = verifiedPayload.given_name || 'Microsoft';
+      const lastName = verifiedPayload.family_name || 'User';
+      const usernameBase = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 32) || 'msuser';
+
+      let username = usernameBase;
+      let suffix = 1;
+      while (await User.findByUsername(username)) {
+        username = `${usernameBase}_${suffix}`;
+        suffix += 1;
+      }
+
+      const randomPassword = `${Math.random().toString(36).slice(-10)}Aa1!`;
+      const userId = await User.create({
+        username,
+        email,
+        password: randomPassword,
+        firstName,
+        lastName,
+        department: 'Azure AD',
+        role: 'user'
+      });
+
+      user = await User.findById(userId);
+      logger.info(`Auto-provisioned Azure user: ${email}`);
+    }
+
+    if (!user) {
+      return res.status(403).json(
+        formatResponse(false, null, 'No local account found for this Microsoft email')
+      );
+    }
+
+    const token = generateToken({
+      userId: user.userId,
+      username: user.username,
+      email: user.email,
+      role: user.role
+    });
+
+    logger.info(`User logged in with Microsoft: ${email}`);
+
+    return res.status(200).json(
+      formatResponse(true, { user, token }, 'Microsoft login successful')
+    );
+  } catch (error) {
+    logger.error('Error in microsoftLogin:', error);
+    return res.status(401).json(
+      formatResponse(false, null, 'Microsoft authentication failed')
+    );
   }
 };
 
@@ -507,6 +642,7 @@ const verifyPassword = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  microsoftLogin,
   getProfile,
   updateProfile,
   changePassword,

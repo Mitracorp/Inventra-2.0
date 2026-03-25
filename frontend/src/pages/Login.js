@@ -1,13 +1,37 @@
 import React, { useState } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { PublicClientApplication } from '@azure/msal-browser';
+import mitracorpLogo from '../assets/MitracorpLogo_full.png';
+
+const azureClientId = process.env.REACT_APP_AZURE_CLIENT_ID;
+const azureAuthority = process.env.REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common';
+const azureRedirectUri = process.env.REACT_APP_AZURE_REDIRECT_URI || window.location.origin;
+
+const msalInstance = azureClientId ? new PublicClientApplication({
+  auth: {
+    clientId: azureClientId,
+    authority: azureAuthority,
+    redirectUri: azureRedirectUri
+  },
+  cache: {
+    cacheLocation: 'sessionStorage'
+  }
+}) : null;
 
 const Login = ({ onLogin }) => {
   usePageTitle('Login');
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const candidateApiUrls = Array.from(new Set([
+    process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1',
+    'http://127.0.0.1:5000/api/v1',
+    'http://localhost:5000/api/v1'
+  ]));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,13 +39,6 @@ const Login = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const configuredApiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1';
-      const candidateApiUrls = Array.from(new Set([
-        configuredApiUrl,
-        'http://127.0.0.1:5000/api/v1',
-        'http://localhost:5000/api/v1'
-      ]));
-
       let response = null;
       let lastNetworkError = null;
 
@@ -71,10 +88,75 @@ const Login = ({ onLogin }) => {
     }
   };
 
+  const handleMicrosoftLogin = async () => {
+    if (!msalInstance) {
+      setError('Azure login is not configured. Set REACT_APP_AZURE_CLIENT_ID in frontend env.');
+      return;
+    }
+
+    setError('');
+    setMsLoading(true);
+
+    try {
+      await msalInstance.initialize();
+      const loginResult = await msalInstance.loginPopup({
+        scopes: ['openid', 'profile', 'email', 'User.Read'],
+        prompt: 'select_account'
+      });
+
+      const idToken = loginResult?.idToken;
+      if (!idToken) {
+        throw new Error('Microsoft login did not return an ID token');
+      }
+
+      let response = null;
+      let lastNetworkError = null;
+
+      for (const apiUrl of candidateApiUrls) {
+        try {
+          response = await fetch(`${apiUrl}/auth/microsoft-login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ idToken })
+          });
+          break;
+        } catch (networkError) {
+          lastNetworkError = networkError;
+        }
+      }
+
+      if (!response) {
+        throw lastNetworkError || new Error('Unable to reach Microsoft login endpoint');
+      }
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Microsoft authentication failed');
+      }
+
+      localStorage.setItem('authToken', data.data.token);
+      localStorage.setItem('userInfo', JSON.stringify(data.data.user));
+      onLogin();
+    } catch (err) {
+      console.error('Microsoft login error:', err);
+      setError(err.message || 'Microsoft login failed. Please try again.');
+    } finally {
+      setMsLoading(false);
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
-        <h2 className="login-title">Inventory Management System</h2>
+        <img
+          src={mitracorpLogo}
+          alt="Mitracorp"
+          className="login-logo"
+        />
+        <h2 className="login-title">Inventra</h2>
+        <p className="login-subtitle">Inventory Management System</p>
         {error && (
           <div style={{
             padding: '12px',
@@ -135,7 +217,7 @@ const Login = ({ onLogin }) => {
                   padding: '4px',
                   display: 'flex',
                   alignItems: 'center',
-                  color: '#666'
+                  color: '#d7e5f5'
                 }}
                 disabled={loading}
               >
@@ -152,6 +234,37 @@ const Login = ({ onLogin }) => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+
+        <div style={{
+          margin: '16px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          color: '#777'
+        }}>
+          <div style={{ flex: 1, height: '1px', background: '#ddd' }} />
+          <span style={{ fontSize: '13px' }}>OR</span>
+          <div style={{ flex: 1, height: '1px', background: '#ddd' }} />
+        </div>
+
+        <button
+          type="button"
+          className="btn"
+          onClick={handleMicrosoftLogin}
+          disabled={msLoading}
+          style={{
+            width: '100%',
+            border: '1px solid #cfd8e3',
+            background: '#fff',
+            color: '#1f2937',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            fontWeight: 600,
+            cursor: msLoading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {msLoading ? 'Connecting to Microsoft...' : 'Continue with Microsoft'}
+        </button>
       </div>
     </div>
   );

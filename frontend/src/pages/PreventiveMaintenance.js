@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle, CheckSquare, Square } from 'lucide-react';
 import { API_URL } from '../config/api';
 import Pagination from '../components/Pagination';
 import toast from '../utils/toast';
@@ -295,6 +295,7 @@ const PreventiveMaintenance = () => {
   
   // Filter to show only assets with PM records
   const [showOnlyWithPM, setShowOnlyWithPM] = useState(false);
+  const [showOnlyWithPMBeforeDeleteMode, setShowOnlyWithPMBeforeDeleteMode] = useState(false);
 
   // Filtered lists for dropdowns (client-side search)
   const filteredCustomers = useMemo(() => {
@@ -1252,7 +1253,9 @@ const PreventiveMaintenance = () => {
 
   const handleConfirmDeleteMode = () => {
     setShowDeleteConfirmation(false);
+    setShowOnlyWithPMBeforeDeleteMode(showOnlyWithPM);
     setDeleteMode(true);
+    setShowOnlyWithPM(true);
     setSelectedPMsForDelete([]);
     // Broadcast delete mode to sidebar
     sessionStorage.setItem('pmDeleteMode', 'true');
@@ -1265,6 +1268,7 @@ const PreventiveMaintenance = () => {
 
   const handleConfirmCancelDeleteMode = () => {
     setDeleteMode(false);
+    setShowOnlyWithPM(showOnlyWithPMBeforeDeleteMode);
     setSelectedPMsForDelete([]);
     // Clear delete mode from sidebar
     sessionStorage.removeItem('pmDeleteMode');
@@ -1280,6 +1284,29 @@ const PreventiveMaintenance = () => {
       } else {
         return [...prev, { pmId, pmDetails, assetDetails }];
       }
+    });
+  };
+
+  const handleToggleAssetForDelete = (assetDetails, pmRecords = []) => {
+    const validPMRecords = (pmRecords || []).filter(pm => pm && pm.PM_ID);
+    if (validPMRecords.length === 0) return;
+
+    const pmIds = validPMRecords.map(pm => pm.PM_ID);
+
+    setSelectedPMsForDelete(prev => {
+      const selectedSet = new Set(prev.map(item => item.pmId));
+      const allSelected = pmIds.every(id => selectedSet.has(id));
+
+      if (allSelected) {
+        return prev.filter(item => !pmIds.includes(item.pmId));
+      }
+
+      const next = prev.filter(item => !pmIds.includes(item.pmId));
+      validPMRecords.forEach(pm => {
+        next.push({ pmId: pm.PM_ID, pmDetails: pm, assetDetails });
+      });
+
+      return next;
     });
   };
 
@@ -2739,6 +2766,18 @@ const PreventiveMaintenance = () => {
                         <th style={{ minWidth: '200px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                             <span>PM Records</span>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: showOnlyWithPM ? '#27ae60' : '#7f8c8d',
+                                background: showOnlyWithPM ? '#d5f4e6' : '#ecf0f1',
+                                padding: '2px 6px',
+                                borderRadius: '10px'
+                              }}
+                            >
+                              Only with PM
+                            </span>
                             <label 
                               style={{ 
                                 position: 'relative', 
@@ -2799,6 +2838,16 @@ const PreventiveMaintenance = () => {
                         </tr>
                       ) : (
                         paginatedRecords.map((asset, index) => {
+                        const sortedPMRecords = (asset.allPMRecords || [])
+                          .slice()
+                          .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date));
+                        const assetPMIds = sortedPMRecords.map(pm => pm.PM_ID);
+                        const selectedCountForAsset = assetPMIds.filter(
+                          pmId => selectedPMsForDelete.some(item => item.pmId === pmId)
+                        ).length;
+                        const isAssetFullySelected = assetPMIds.length > 0 && selectedCountForAsset === assetPMIds.length;
+                        const isAssetPartiallySelected = selectedCountForAsset > 0 && !isAssetFullySelected;
+
                         const resultsMap = {};
                         if (asset.checklist_results && Array.isArray(asset.checklist_results)) {
                           asset.checklist_results.forEach(result => {
@@ -2826,7 +2875,29 @@ const PreventiveMaintenance = () => {
                               borderRight: '1px solid #e0e0e0',
                               whiteSpace: 'nowrap'
                             }}>
-                              {startIndex + index + 1}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                {deleteMode && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isAssetFullySelected}
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.indeterminate = isAssetPartiallySelected;
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={() => handleToggleAssetForDelete(asset, sortedPMRecords)}
+                                    disabled={assetPMIds.length === 0}
+                                    title={assetPMIds.length === 0 ? 'No PM records to select' : 'Select all PM records for this asset'}
+                                    style={{
+                                      cursor: assetPMIds.length === 0 ? 'not-allowed' : 'pointer',
+                                      width: '14px',
+                                      height: '14px'
+                                    }}
+                                  />
+                                )}
+                                <span>{startIndex + index + 1}</span>
+                              </div>
                             </td>
                             {/* Category Name */}
                             <td style={{
@@ -2899,10 +2970,44 @@ const PreventiveMaintenance = () => {
                             {/* PM Records */}
                             <td style={{ textAlign: 'center' }}>
                               <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                {asset.allPMRecords && asset.allPMRecords.length > 0 ? (
-                                  asset.allPMRecords
-                                    .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date))
-                                    .map((pm, pmIndex) => {
+                                {deleteMode && sortedPMRecords.length > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleAssetForDelete(asset, sortedPMRecords);
+                                    }}
+                                    style={{
+                                      padding: '6px 10px',
+                                      background: isAssetFullySelected ? '#34495e' : '#2c3e50',
+                                      color: 'white',
+                                      border: isAssetFullySelected ? '2px solid #1abc9c' : 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '0.8rem',
+                                      fontWeight: '700',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      transition: 'all 0.2s',
+                                      minWidth: '110px',
+                                      boxShadow: isAssetFullySelected ? '0 0 0 2px rgba(26, 188, 156, 0.25)' : '0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                    onMouseOver={(e) => {
+                                      e.currentTarget.style.background = '#1f2d3a';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseOut={(e) => {
+                                      e.currentTarget.style.background = isAssetFullySelected ? '#34495e' : '#2c3e50';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                    title={isAssetFullySelected ? 'Deselect all PM records for this asset' : 'Select all PM records for this asset'}
+                                  >
+                                    {isAssetFullySelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                                    {isAssetFullySelected ? 'Asset Selected' : `Select Asset (${sortedPMRecords.length})`}
+                                  </button>
+                                )}
+                                {sortedPMRecords.length > 0 ? (
+                                  sortedPMRecords.map((pm, pmIndex) => {
                                       const isInProcess = pm.PM_Status === 'In-Process';
                                       const isMarkedCompleted = pm.PM_Status === 'Marked as Completed';
                                       const bgColor = isInProcess ? '#f59e0b' : isMarkedCompleted ? '#14b8a6' : '#27ae60';
@@ -5872,7 +5977,7 @@ const PreventiveMaintenance = () => {
             
             <div style={{ marginBottom: '20px', padding: '15px', background: '#fee', border: '1px solid #f5c6cb', borderRadius: '8px' }}>
               <p style={{ margin: 0, fontSize: '1.1rem', color: '#721c24', fontWeight: '600' }}>
-                {deletingSummary.length} PM record(s) will be permanently deleted
+                {deletingSummary.length} PM record(s) will be moved to trash (soft delete)
               </p>
             </div>
 
@@ -5933,8 +6038,8 @@ const PreventiveMaintenance = () => {
 
             <div style={{ padding: '15px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px', marginBottom: '20px' }}>
               <p style={{ margin: 0, fontSize: '0.95rem', color: '#856404', lineHeight: '1.5' }}>
-                <strong>Warning:</strong> This action will permanently delete the selected PM records from the database. 
-                All associated checklist results will also be deleted. This action cannot be undone.
+                <strong>Warning:</strong> This action will move the selected PM records to trash (soft delete). 
+                Associated checklist results will be hidden with the PM records. Assets are not deleted.
               </p>
             </div>
 

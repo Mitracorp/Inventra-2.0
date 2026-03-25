@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, RefreshCw } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
+import ConfirmationModal from '../components/ConfirmationModal';
 import './AuditLog.css';
 import toast from '../utils/toast';
 import {
@@ -54,6 +55,13 @@ const AuditLog = () => {
   const [byUser, setByUser] = useState([]);
   const [byAction, setByAction] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [revertConfirm, setRevertConfirm] = useState({
+    isOpen: false,
+    label: '',
+    recordId: null,
+    endpoint: ''
+  });
+  const [reverting, setReverting] = useState(false);
 
   const fetchFilterOptions = async () => {
     try {
@@ -306,7 +314,7 @@ const AuditLog = () => {
   };
 
   // --- FUNGSI BARU UNTUK REVERT SOFT DELETE ---
-  const handleRevert = async (recordId, tableName) => {
+  const handleRevert = (recordId, tableName) => {
     const revertConfigByTable = {
       PROJECT: {
         label: 'Project',
@@ -336,14 +344,24 @@ const AuditLog = () => {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to restore ${config.label} ID: ${recordId}?`)) {
+    setRevertConfirm({
+      isOpen: true,
+      label: config.label,
+      recordId,
+      endpoint: config.endpoint
+    });
+  };
+
+  const handleConfirmRevert = async () => {
+    if (!revertConfirm.recordId || !revertConfirm.endpoint) {
       return;
     }
 
     try {
+      setReverting(true);
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(config.endpoint, {
+      const response = await fetch(revertConfirm.endpoint, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -357,13 +375,16 @@ const AuditLog = () => {
         throw new Error(data.error || 'Failed to revert action');
       }
 
-      toast.success(data.message || `${config.label} successfully restored!`);
+      toast.success(data.message || `${revertConfirm.label} successfully restored!`);
+      setRevertConfirm({ isOpen: false, label: '', recordId: null, endpoint: '' });
       
       // Refresh jadual lepas berjaya revert
       handleRefresh(); 
     } catch (err) {
       console.error('Error reverting record:', err);
       toast.error(err.message);
+    } finally {
+      setReverting(false);
     }
   };
   // ---------------------------------------------
@@ -964,6 +985,22 @@ const AuditLog = () => {
           </>
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={revertConfirm.isOpen}
+        onClose={() => {
+          if (!reverting) {
+            setRevertConfirm({ isOpen: false, label: '', recordId: null, endpoint: '' });
+          }
+        }}
+        onConfirm={handleConfirmRevert}
+        title={`Restore ${revertConfirm.label}`}
+        message={`Are you sure you want to restore ${revertConfirm.label} ID: ${revertConfirm.recordId}?`}
+        confirmText="Restore"
+        cancelText="Cancel"
+        type="success"
+        loading={reverting}
+      />
     </div>
   );
 };
