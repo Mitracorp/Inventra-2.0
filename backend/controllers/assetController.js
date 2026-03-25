@@ -532,19 +532,26 @@ const createAssetWithDetails = async (req, res, next, importCache = null) => {
     // Log the creation in audit log
     const userId = req.user?.User_ID || req.user?.userId || 1;
     const username = req.user?.Username || req.user?.username || 'System';
-    await logAssetChange(
-      userId,
-      newAsset.Asset_ID,
-      'INSERT',
-      `${username} created new Asset ${completeData.serial_number}`,
-      []
-    );
+    
+    try {
+      await logAssetChange(
+        userId,
+        newAsset.Asset_ID,
+        'INSERT',
+        `${username} created new Asset: ${completeData.serial_number}`,
+        []
+      );
+      console.log('✅ Audit log saved successfully for Asset creation');
+    } catch (logError) {
+      console.error('❌ Failed to save audit log for asset creation:', logError);
+    }
 
     console.log('Sending success response with asset data:', {
       Asset_ID: newAsset.Asset_ID,
       Serial_Number: completeAsset?.Asset_Serial_Number,
       Peripherals_Count: completeAsset?.Peripherals?.length || 0
     });
+
     res.status(201).json({
       success: true,
       message: `Asset ${completeData.serial_number} created successfully with ${peripheralIds.length} peripherals`,
@@ -1011,56 +1018,48 @@ const deleteAsset = async (req, res, next) => {
 };
 
 /**
- * Delete asset by ID (with cascade deletion of peripherals and PM records)
+ * Delete asset by ID (Soft Delete)
  */
 const deleteAssetById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log(`Delete request received for Asset_ID: ${id}`);
+    console.log(`Soft delete request received for Asset_ID: ${id}`);
 
-    // Check if asset exists and get its details
+    // Check if asset exists
     const existingAsset = await Asset.findById(id);
     if (!existingAsset) {
-      console.log(`Asset not found with ID: ${id}`);
-      return res.status(404).json({
-        success: false,
-        error: 'Asset not found'
-      });
+      return res.status(404).json({ success: false, error: 'Asset not found' });
     }
 
-    console.log(`Found asset: ${existingAsset.Asset_Serial_Number}`);
-
-    // Delete asset (this will cascade delete peripherals and PM records due to foreign key constraints)
-    const result = await Asset.deleteById(id);
+    // 1. Buat Soft Delete (guna fungsi yang dah diubah dalam Asset.js)
+    const success = await Asset.delete(id);
     
-    if (!result.success) {
-      console.error(`Failed to delete asset: ${result.error}`);
-      return res.status(400).json({
-        success: false,
-        error: result.error || 'Failed to delete asset'
-      });
+    if (!success) {
+      return res.status(400).json({ success: false, error: 'Failed to move asset to trash' });
     }
 
-    logger.info(`Asset deleted: ID ${id}, Serial: ${existingAsset.Asset_Serial_Number}, Peripherals: ${result.peripheralsDeleted}, PM Records: ${result.pmRecordsDeleted}, PM Results: ${result.pmResultsDeleted}, Software Links: ${result.softwareLinksDeleted}, Inventory Rows Deleted: ${result.inventoryDeleted}, Inventory Rows Nulled: ${result.inventoryNulled}`);
+    // 2. Simpan Audit Log supaya boleh di-revert
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    
+    try {
+      await logAssetChange(
+        userId,
+        id, // Record ID (Penting!)
+        'DELETE',
+        `${username} moved Asset ${existingAsset.Asset_Serial_Number} to trash`,
+        []
+      );
+    } catch (logError) {
+      console.error('Failed to log asset deletion:', logError);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Asset and related records deleted successfully',
-      data: {
-        asset_id: id,
-        serial_number: existingAsset.Asset_Serial_Number,
-        peripherals_deleted: result.peripheralsDeleted,
-        pm_records_deleted: result.pmRecordsDeleted,
-        pm_results_deleted: result.pmResultsDeleted,
-        software_links_deleted: result.softwareLinksDeleted,
-        inventory_deleted: result.inventoryDeleted,
-        inventory_nulled: result.inventoryNulled,
-        // Backwards compatibility (previous field name)
-        inventory_updated: result.inventoryUpdated
-      }
+      message: 'Asset moved to trash successfully',
+      data: { asset_id: id }
     });
   } catch (error) {
-    logger.error('Error in deleteAssetById:', error);
     console.error('Error deleting asset:', error);
     res.status(500).json({
       success: false,
@@ -2568,6 +2567,54 @@ const updateAssetFlag = async (req, res, next) => {
   }
 };
 
+/**
+ * Revert Soft Deleted Asset
+ */
+const revertAssetDelete = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    console.log(`Attempting to restore Asset ID: ${id}`);
+
+    // 1. Update deleted_at jadi NULL guna raw SQL query
+    const [result] = await pool.execute(
+      'UPDATE ASSET SET deleted_at = NULL WHERE Asset_ID = ?', 
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Asset not found or already restored' });
+    }
+
+    // 2. Simpan dalam Audit Log (Cakap dah berjaya restore)
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    
+    try {
+      await logAssetChange(
+        userId,
+        id,
+        'RESTORE',
+        `${username} restored Asset ID: ${id} from trash`,
+        []
+      );
+    } catch (logError) {
+      console.error('Failed to log asset restoration:', logError);
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Asset successfully restored' 
+    });
+  } catch (error) {
+    console.error('Error restoring asset:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to restore asset', 
+      message: error.message 
+    });
+  }
+};
+
 module.exports = {
   getAllAssets,
   getAssetById,
@@ -2580,6 +2627,7 @@ module.exports = {
   updateAssetFlag,
   deleteAsset,
   deleteAssetById,
+  revertAssetDelete,
   getAssetStatistics,
   validateImportData,
   bulkImportAssets,

@@ -12,16 +12,18 @@ class PMaintenance {
   // Get all PM records with asset, project, and customer details
   static async findAll(allowedProjectIds = null) {
     try {
-      let whereClause = '';
+      let whereConditions = ['pm.deleted_at IS NULL'];
       let queryParams = [];
       
       // Add Project_ID filter for customer-type users
       if (allowedProjectIds && Array.isArray(allowedProjectIds) && allowedProjectIds.length > 0) {
         const placeholders = allowedProjectIds.map(() => '?').join(',');
-        whereClause = `WHERE p.Project_ID IN (${placeholders})`;
+        whereConditions.push(`p.Project_ID IN (${placeholders})`);
         queryParams = [...allowedProjectIds];
         console.log('🔍 PM findAll - Filtering by Project_IDs:', allowedProjectIds);
       }
+
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
       
       const query = `
         SELECT 
@@ -74,20 +76,22 @@ class PMaintenance {
   // Get PM statistics
   static async getStatistics(allowedProjectIds = null) {
     try {
-      let whereClause = '';
+      let whereConditions = ['pm.deleted_at IS NULL'];
       let queryParams = [];
       
       // Add Project_ID filter for customer-type users
       if (allowedProjectIds && Array.isArray(allowedProjectIds) && allowedProjectIds.length > 0) {
         const placeholders = allowedProjectIds.map(() => '?').join(',');
-        whereClause = `WHERE pm.Asset_ID IN (
+        whereConditions.push(`pm.Asset_ID IN (
           SELECT i.Asset_ID 
           FROM INVENTORY i 
           WHERE i.Project_ID IN (${placeholders})
-        )`;
+        )`);
         queryParams = [...allowedProjectIds];
         console.log('🔍 PM getStatistics - Filtering by Project_IDs:', allowedProjectIds);
       }
+
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
       
       // Total PM records
       const totalQuery = `
@@ -101,7 +105,7 @@ class PMaintenance {
       const thisYearQuery = `
         SELECT COUNT(*) as count
         FROM PMAINTENANCE pm
-        ${whereClause ? whereClause + ' AND' : 'WHERE'} YEAR(pm.PM_Date) = YEAR(CURDATE())
+        ${whereClause} AND YEAR(pm.PM_Date) = YEAR(CURDATE())
       `;
       const [thisYearResult] = await pool.execute(thisYearQuery, queryParams);
 
@@ -109,7 +113,7 @@ class PMaintenance {
       const thisMonthQuery = `
         SELECT COUNT(*) as count
         FROM PMAINTENANCE pm
-        ${whereClause ? whereClause + ' AND' : 'WHERE'} 
+        ${whereClause} 
         YEAR(pm.PM_Date) = YEAR(CURDATE())
         AND MONTH(pm.PM_Date) = MONTH(CURDATE())
       `;
@@ -215,7 +219,7 @@ class PMaintenance {
         INNER JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
         INNER JOIN CUSTOMER cust ON i.Customer_ID = cust.Customer_ID
         LEFT JOIN PROJECT p ON i.Project_ID = p.Project_ID
-        LEFT JOIN PMAINTENANCE pm ON a.Asset_ID = pm.Asset_ID
+        LEFT JOIN PMAINTENANCE pm ON a.Asset_ID = pm.Asset_ID AND pm.deleted_at IS NULL
         WHERE cust.Customer_Ref_Number = ? AND cust.Branch = ?
         ORDER BY c.Category, a.Asset_ID, pm.PM_Date ASC
       `, [customerRefNumber, branch]);
@@ -309,7 +313,7 @@ class PMaintenance {
         LEFT JOIN CUSTOMER cust ON inv.Customer_ID = cust.Customer_ID
         LEFT JOIN PROJECT p ON inv.Project_ID = p.Project_ID
         LEFT JOIN USER u ON pm.Created_By = u.User_ID
-        WHERE pm.PM_ID = ?
+        WHERE pm.PM_ID = ? AND pm.deleted_at IS NULL
       `, [pmId]);
 
       if (pmRows.length === 0) return null;
@@ -414,7 +418,7 @@ class PMaintenance {
         LEFT JOIN RECIPIENTS r ON a.Recipients_ID = r.Recipients_ID
         INNER JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
         INNER JOIN CUSTOMER cust ON i.Customer_ID = cust.Customer_ID
-        LEFT JOIN PMAINTENANCE pm ON a.Asset_ID = pm.Asset_ID
+        LEFT JOIN PMAINTENANCE pm ON a.Asset_ID = pm.Asset_ID AND pm.deleted_at IS NULL
         WHERE cust.Customer_Ref_Number = ? AND cust.Branch = ?
         ORDER BY c.Category, a.Asset_Tag_ID, pm.PM_Date ASC
       `, [customerRefNumber, branch]);
@@ -485,32 +489,32 @@ class PMaintenance {
     }
   }
 
-  // Delete PM record and all related PM_RESULT entries
+  // Soft delete PM record
   static async deletePM(pmId) {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      
-      // Delete all PM_RESULT entries for this PM_ID
-      await connection.execute(
-        'DELETE FROM PM_RESULT WHERE PM_ID = ?',
+      const [result] = await pool.execute(
+        'UPDATE PMAINTENANCE SET deleted_at = CURRENT_TIMESTAMP WHERE PM_ID = ? AND deleted_at IS NULL',
         [pmId]
       );
-      
-      // Delete the PM record
-      const [result] = await connection.execute(
-        'DELETE FROM PMAINTENANCE WHERE PM_ID = ?',
-        [pmId]
-      );
-      
-      await connection.commit();
+
       return result.affectedRows > 0;
     } catch (error) {
-      await connection.rollback();
       console.error('Error in PMaintenance.deletePM:', error);
       throw error;
-    } finally {
-      connection.release();
+    }
+  }
+
+  static async restorePM(pmId) {
+    try {
+      const [result] = await pool.execute(
+        'UPDATE PMAINTENANCE SET deleted_at = NULL WHERE PM_ID = ? AND deleted_at IS NOT NULL',
+        [pmId]
+      );
+
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error in PMaintenance.restorePM:', error);
+      throw error;
     }
   }
 
@@ -550,7 +554,7 @@ class PMaintenance {
           CONCAT(u.First_Name, ' ', u.Last_Name) as Created_By_Name
         FROM PMAINTENANCE pm
         LEFT JOIN USER u ON pm.Created_By = u.User_ID
-        WHERE pm.Asset_ID = ?
+        WHERE pm.Asset_ID = ? AND pm.deleted_at IS NULL
         ORDER BY pm.PM_Date DESC
       `, [assetId]);
       return rows;

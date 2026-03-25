@@ -29,7 +29,8 @@ const {
   deleteAcknowledgement,
   uploadSignature,
   bulkDeletePM,
-  markAsCompleted
+  markAsCompleted,
+  revertPMDelete
 } = require('../controllers/pmController');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -342,6 +343,7 @@ router.delete('/:pmId/delete-acknowledgement', deleteAcknowledgement);
 router.post('/:pmId/signature', uploadSignature);
 router.put('/:pmId/mark-completed', markAsCompleted);
 router.delete('/:pmId', deletePM);
+router.put('/revert/:pmId', authenticateToken, revertPMDelete);
 
 // Checklist Management Routes
 router.get('/categories', getAllCategories);

@@ -34,6 +34,7 @@ class Project {
         FROM PROJECT p
         LEFT JOIN INVENTORY i ON p.Project_ID = i.Project_ID
         LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
+        WHERE p.deleted_at IS NULL
         GROUP BY p.Project_ID
         ORDER BY p.Project_ID DESC
       `);
@@ -214,10 +215,14 @@ class Project {
     }
   }
 
-  // Delete project
+  // Soft Delete project (Instead of hard delete)
   static async delete(id) {
     try {
-      const [result] = await pool.execute('DELETE FROM PROJECT WHERE Project_ID = ?', [id]);
+      // Kita update deleted_at dengan tarikh dan masa sekarang
+      const [result] = await pool.execute(
+        'UPDATE PROJECT SET deleted_at = CURRENT_TIMESTAMP WHERE Project_ID = ?', 
+        [id]
+      );
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error in Project.delete:', error);
@@ -228,9 +233,9 @@ class Project {
   // Get project statistics
   static async getStatistics() {
     try {
-      const [totalResult] = await pool.execute('SELECT COUNT(*) as total FROM PROJECT');
-      const [activeResult] = await pool.execute('SELECT COUNT(*) as active FROM PROJECT WHERE End_Date >= CURDATE()');
-      
+      const [totalResult] = await pool.execute('SELECT COUNT(*) as total FROM PROJECT WHERE deleted_at IS NULL');
+      const [activeResult] = await pool.execute('SELECT COUNT(*) as active FROM PROJECT WHERE End_Date >= CURDATE() AND deleted_at IS NULL');
+
       return {
         total: totalResult[0].total,
         active: activeResult[0].active,
@@ -270,6 +275,7 @@ class Project {
         WHERE p.PM_Frequency IS NOT NULL
         AND p.PM_Frequency > 0
         AND (p.End_Date IS NULL OR p.End_Date >= CURDATE())
+        AND p.deleted_at IS NULL
         GROUP BY p.Project_ID
         ORDER BY p.Start_Date, p.Project_Title
       `);

@@ -15,19 +15,45 @@ const Login = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: credentials.username,
-          password: credentials.password
-        })
-      });
+      const configuredApiUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1';
+      const candidateApiUrls = Array.from(new Set([
+        configuredApiUrl,
+        'http://127.0.0.1:5000/api/v1',
+        'http://localhost:5000/api/v1'
+      ]));
 
-      const data = await response.json();
+      let response = null;
+      let lastNetworkError = null;
+
+      for (const apiUrl of candidateApiUrls) {
+        try {
+          response = await fetch(`${apiUrl}/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username: credentials.username,
+              password: credentials.password
+            })
+          });
+          break;
+        } catch (networkError) {
+          lastNetworkError = networkError;
+        }
+      }
+
+      if (!response) {
+        throw lastNetworkError || new Error('Unable to reach login endpoint');
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        const responseText = await response.text().catch(() => '');
+        throw new Error(responseText || `Unexpected server response (status ${response.status})`);
+      }
 
       if (data.success) {
         // Store token and user info in localStorage
@@ -39,7 +65,7 @@ const Login = ({ onLogin }) => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Failed to connect to server. Please try again.');
+      setError(err.message || 'Failed to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }

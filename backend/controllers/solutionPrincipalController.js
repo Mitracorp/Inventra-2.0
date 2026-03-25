@@ -1,4 +1,5 @@
 const SolutionPrincipal = require('../models/SolutionPrincipal');
+const { logSolutionPrincipalChange } = require('../utils/auditLogger');
 
 // Get all solution principals
 exports.getAllSolutionPrincipals = async (req, res) => {
@@ -98,13 +99,27 @@ exports.updateSolutionPrincipal = async (req, res) => {
 exports.deleteSolutionPrincipal = async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await SolutionPrincipal.findById(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Solution Principal not found' });
+    }
     
     const result = await SolutionPrincipal.delete(id);
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logSolutionPrincipalChange(
+      userId,
+      id,
+      'DELETE',
+      `${username} moved Solution Principal "${existing.SP_Name}" to trash`,
+      []
+    );
     
     res.status(200).json({
       success: true,
       data: result,
-      message: 'Solution Principal deleted successfully'
+      message: 'Solution Principal moved to trash successfully'
     });
   } catch (error) {
     if (error.message === 'Solution Principal not found') {
@@ -114,6 +129,39 @@ exports.deleteSolutionPrincipal = async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to delete solution principal',
       message: error.message 
+    });
+  }
+};
+
+// Revert soft deleted solution principal
+exports.revertSolutionPrincipalDelete = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const restored = await SolutionPrincipal.restore(id);
+    if (!restored) {
+      return res.status(404).json({ error: 'Solution Principal not found or already restored' });
+    }
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logSolutionPrincipalChange(
+      userId,
+      id,
+      'RESTORE',
+      `${username} restored Solution Principal ID: ${id} from trash`,
+      []
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Solution Principal successfully restored'
+    });
+  } catch (error) {
+    console.error('Error restoring solution principal:', error);
+    res.status(500).json({
+      error: 'Failed to restore solution principal',
+      message: error.message
     });
   }
 };

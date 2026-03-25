@@ -48,4 +48,7 @@ router.put('/:id/solution-principals', projectController.updateProjectSolutionPr
 // DELETE /api/projects/:id - Delete project (requires authentication)
 router.delete('/:id', authenticateToken, projectController.deleteProject);
 
+// Tambah route baru ni untuk fungsi Revert
+router.put('/revert/:id', authenticateToken, projectController.revertProjectDelete);
+
 module.exports = router;

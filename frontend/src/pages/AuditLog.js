@@ -13,6 +13,7 @@ import {
   getAuditSessions,
   exportAuditLogs
 } from '../services/auditLogService';
+import { API_URL } from '../config/api';
 
 const AuditLog = () => {
   usePageTitle('Audit Log');
@@ -304,6 +305,65 @@ const AuditLog = () => {
     }
   };
 
+  // --- FUNGSI BARU UNTUK REVERT SOFT DELETE ---
+  const handleRevert = async (recordId, tableName) => {
+    const revertConfigByTable = {
+      PROJECT: {
+        label: 'Project',
+        endpoint: `${API_URL}/projects/revert/${recordId}`
+      },
+      ASSET: {
+        label: 'Asset',
+        endpoint: `${API_URL}/assets/revert/${recordId}`
+      },
+      PM: {
+        label: 'PM record',
+        endpoint: `${API_URL}/pm/revert/${recordId}`
+      },
+      SOLUTION_PRINCIPAL: {
+        label: 'Solution Principal',
+        endpoint: `${API_URL}/solution-principals/revert/${recordId}`
+      }
+    };
+
+    const config = revertConfigByTable[tableName];
+    if (!config) {
+      toast.error(`Revert is not supported for ${tableName}.`);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to restore ${config.label} ID: ${recordId}?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+
+      const response = await fetch(config.endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to revert action');
+      }
+
+      toast.success(data.message || `${config.label} successfully restored!`);
+      
+      // Refresh jadual lepas berjaya revert
+      handleRefresh(); 
+    } catch (err) {
+      console.error('Error reverting record:', err);
+      toast.error(err.message);
+    }
+  };
+  // ---------------------------------------------
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '-';
     const date = new Date(timestamp);
@@ -584,6 +644,7 @@ const AuditLog = () => {
                       <th>Action</th>
                       <th>Description</th>
                       <th>Changes</th>
+                      <th>Revert</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -623,6 +684,31 @@ const AuditLog = () => {
                             </div>
                           ) : (
                             '-'
+                          )}
+                        </td>
+                        <td>
+                          {/* --- INI YANG KITA UBAH --- */}
+                          {log.Action_Type === 'DELETE' && ['PROJECT', 'ASSET', 'PM', 'SOLUTION_PRINCIPAL'].includes(log.Table_Name) && (
+                            <button 
+                              onClick={() => handleRevert(log.Record_ID, log.Table_Name)}
+                              style={{
+                                background: '#10b981', 
+                                color: 'white', 
+                                border: 'none', 
+                                padding: '6px 12px', 
+                                borderRadius: '4px', 
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                              onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+                            >
+                              <RefreshCw size={12} /> Undo
+                            </button>
                           )}
                         </td>
                       </tr>

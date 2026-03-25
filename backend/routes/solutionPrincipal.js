@@ -1,5 +1,6 @@
 const express = require('express');
 const solutionPrincipalController = require('../controllers/solutionPrincipalController');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,12 +11,15 @@ router.get('/', solutionPrincipalController.getAllSolutionPrincipals);
 router.get('/:id', solutionPrincipalController.getSolutionPrincipalById);
 
 // Create new solution principal
-router.post('/', solutionPrincipalController.createSolutionPrincipal);
+router.post('/', authenticateToken, solutionPrincipalController.createSolutionPrincipal);
 
 // Update solution principal
-router.put('/:id', solutionPrincipalController.updateSolutionPrincipal);
+router.put('/:id', authenticateToken, solutionPrincipalController.updateSolutionPrincipal);
 
 // Delete solution principal
-router.delete('/:id', solutionPrincipalController.deleteSolutionPrincipal);
+router.delete('/:id', authenticateToken, solutionPrincipalController.deleteSolutionPrincipal);
+
+// Revert soft deleted solution principal
+router.put('/revert/:id', authenticateToken, solutionPrincipalController.revertSolutionPrincipalDelete);
 
 module.exports = router;

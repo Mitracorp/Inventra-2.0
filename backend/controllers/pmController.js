@@ -6,6 +6,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const { pool } = require('../config/database');
+const { logPMChange } = require('../utils/auditLogger');
 
 /**
  * Get all PM records
@@ -771,11 +772,21 @@ const deletePM = async (req, res, next) => {
         error: 'PM record not found'
       });
     }
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logPMChange(
+      userId,
+      pmId,
+      'DELETE',
+      `${username} moved PM record ID: ${pmId} to trash`,
+      []
+    );
     
-    logger.info(`PM record deleted: PM_ID ${pmId}`);
+    logger.info(`PM record soft deleted: PM_ID ${pmId}`);
     res.status(200).json({
       success: true,
-      message: 'PM record deleted successfully'
+      message: 'PM record moved to trash successfully'
     });
   } catch (error) {
     logger.error('Error in deletePM:', error);
@@ -1174,20 +1185,28 @@ const bulkDeletePM = async (req, res, next) => {
       });
     }
 
-    // Delete PM records (cascade will handle PM_RESULT deletion)
+    // Soft delete PM records
     let deletedCount = 0;
     const errors = [];
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
 
     for (const pmId of pmIds) {
       try {
-        // First delete from PM_RESULT
-        await executeQuery('DELETE FROM PM_RESULT WHERE PM_ID = ?', [pmId]);
-        
-        // Then delete from PMAINTENANCE
-        const result = await executeQuery('DELETE FROM PMAINTENANCE WHERE PM_ID = ?', [pmId]);
+        const result = await executeQuery(
+          'UPDATE PMAINTENANCE SET deleted_at = CURRENT_TIMESTAMP WHERE PM_ID = ? AND deleted_at IS NULL',
+          [pmId]
+        );
         
         if (result.affectedRows > 0) {
           deletedCount++;
+          await logPMChange(
+            userId,
+            pmId,
+            'DELETE',
+            `${username} moved PM record ID: ${pmId} to trash`,
+            []
+          );
         }
       } catch (error) {
         logger.error(`Error deleting PM_ID ${pmId}:`, error);
@@ -1196,20 +1215,59 @@ const bulkDeletePM = async (req, res, next) => {
     }
 
     // Log the deletion
-    logger.info(`User ${req.user.userId} deleted ${deletedCount} PM records`);
+    logger.info(`User ${req.user.userId} soft deleted ${deletedCount} PM records`);
 
     res.status(200).json({
       success: true,
       deletedCount,
       failedCount: errors.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Successfully deleted ${deletedCount} PM record(s)`
+      message: `Successfully moved ${deletedCount} PM record(s) to trash`
     });
   } catch (error) {
     logger.error('Error in bulkDeletePM:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete PM records',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Revert soft deleted PM record
+ */
+const revertPMDelete = async (req, res, next) => {
+  try {
+    const { pmId } = req.params;
+
+    const restored = await PMaintenance.restorePM(pmId);
+    if (!restored) {
+      return res.status(404).json({
+        success: false,
+        error: 'PM record not found or already restored'
+      });
+    }
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logPMChange(
+      userId,
+      pmId,
+      'RESTORE',
+      `${username} restored PM record ID: ${pmId} from trash`,
+      []
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'PM record successfully restored'
+    });
+  } catch (error) {
+    logger.error('Error in revertPMDelete:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore PM record',
       message: error.message
     });
   }
@@ -1274,5 +1332,6 @@ module.exports = {
   deleteAcknowledgement,
   uploadSignature,
   bulkDeletePM,
-  markAsCompleted
+  markAsCompleted,
+  revertPMDelete
 };
