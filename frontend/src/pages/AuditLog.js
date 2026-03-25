@@ -320,6 +320,10 @@ const AuditLog = () => {
         label: 'PM record',
         endpoint: `${API_URL}/pm/revert/${recordId}`
       },
+      PMAINTENANCE: {
+        label: 'PM record',
+        endpoint: `${API_URL}/pm/revert/${recordId}`
+      },
       SOLUTION_PRINCIPAL: {
         label: 'Solution Principal',
         endpoint: `${API_URL}/solution-principals/revert/${recordId}`
@@ -378,6 +382,25 @@ const AuditLog = () => {
 
   const getActionBadgeClass = (actionType) => {
     return `action-badge ${actionType.toLowerCase()}`;
+  };
+
+  const canShowUndoButton = (log) => {
+    const supportedTables = ['PROJECT', 'ASSET', 'PM', 'PMAINTENANCE', 'SOLUTION_PRINCIPAL'];
+    if (!supportedTables.includes(log.Table_Name)) return false;
+
+    // Standard explicit DELETE log.
+    if (log.Action_Type === 'DELETE') return true;
+
+    // Fallback for soft-delete entries that are logged as UPDATE (common with DB triggers).
+    if (log.Table_Name !== 'PM' && log.Table_Name !== 'PMAINTENANCE') return false;
+    if (log.Action_Type !== 'UPDATE') return false;
+
+    return Array.isArray(log.Changes) && log.Changes.some((change) => {
+      const field = (change.fieldName || '').toLowerCase();
+      const oldVal = `${change.oldValue ?? ''}`.trim();
+      const newVal = `${change.newValue ?? ''}`.trim();
+      return field === 'deleted_at' && oldVal === '' && newVal !== '';
+    });
   };
 
   return (
@@ -688,7 +711,7 @@ const AuditLog = () => {
                         </td>
                         <td>
                           {/* --- INI YANG KITA UBAH --- */}
-                          {log.Action_Type === 'DELETE' && ['PROJECT', 'ASSET', 'PM', 'SOLUTION_PRINCIPAL'].includes(log.Table_Name) && (
+                          {canShowUndoButton(log) && (
                             <button 
                               onClick={() => handleRevert(log.Record_ID, log.Table_Name)}
                               style={{
