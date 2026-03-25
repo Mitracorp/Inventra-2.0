@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { PublicClientApplication } from '@azure/msal-browser';
-import mitracorpLogo from '../assets/MitracorpLogo_full.png';
 
 const azureClientId = process.env.REACT_APP_AZURE_CLIENT_ID;
 const azureAuthority = process.env.REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common';
@@ -150,13 +149,7 @@ const Login = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <img
-          src={mitracorpLogo}
-          alt="Mitracorp"
-          className="login-logo"
-        />
-        <h2 className="login-title">Inventra</h2>
-        <p className="login-subtitle">Inventory Management System</p>
+        <h2 className="login-title">Inventory Management System</h2>
         {error && (
           <div style={{
             padding: '12px',
@@ -217,7 +210,7 @@ const Login = ({ onLogin }) => {
                   padding: '4px',
                   display: 'flex',
                   alignItems: 'center',
-                  color: '#d7e5f5'
+                  color: '#666'
                 }}
                 disabled={loading}
               >
