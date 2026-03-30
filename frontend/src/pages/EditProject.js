@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, ArrowLeft, Calendar, FileText, User, Shield, Wrench, Building2, MapPin, X, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Save, ArrowLeft, Calendar, FileText, User, Shield, Wrench, Building2, MapPin, X, Plus, Trash2, Edit2, Upload } from 'lucide-react';
 import { API_URL } from '../config/api';
 import SearchableDropdown from '../components/SearchableDropdown';
 import toast from '../utils/toast';
@@ -17,6 +17,7 @@ const EditProject = () => {
   const [project, setProject] = useState({
     Project_Ref_Number: '',
     Project_Title: '',
+    Company_Full_Name: '',
     Warranty: '',
     Preventive_Maintenance: '',
     PM_Frequency: 2,
@@ -42,6 +43,98 @@ const EditProject = () => {
   const [selectedSolutionPrincipals, setSelectedSolutionPrincipals] = useState([]);
   const [originalSolutionPrincipals, setOriginalSolutionPrincipals] = useState([]);
   const [solutionPrincipalsModified, setSolutionPrincipalsModified] = useState(false);
+  const [projectLogoPath, setProjectLogoPath] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreviewIndex, setLogoPreviewIndex] = useState(0);
+  const [logoPreviewBlobUrl, setLogoPreviewBlobUrl] = useState('');
+
+  const BASE_URL = API_URL.replace('/api/v1', '');
+
+  const getLogoPreviewCandidates = (logoPath) => {
+    if (!logoPath) return [];
+
+    const rawPath = String(logoPath).trim();
+    if (!rawPath) return [];
+    if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return [rawPath];
+
+    const normalized = rawPath.replace(/\\/g, '/');
+    const uploadsMarker = '/uploads/';
+    const uploadsIndex = normalized.toLowerCase().indexOf(uploadsMarker);
+
+    let uploadsPath = '';
+    if (uploadsIndex >= 0) {
+      uploadsPath = normalized.substring(uploadsIndex);
+    } else if (normalized.startsWith('uploads/')) {
+      uploadsPath = `/${normalized}`;
+    } else if (normalized.startsWith('/uploads/')) {
+      uploadsPath = normalized;
+    } else {
+      const fileName = normalized.split('/').pop();
+      uploadsPath = fileName ? `/uploads/project-logo/${fileName}` : '';
+    }
+
+    if (!uploadsPath) return [];
+
+    const encodedUploadsPath = encodeURI(uploadsPath);
+    const apiHost = String(BASE_URL || '').replace(/\/+$/, '');
+    const appHost = typeof window !== 'undefined' ? window.location.origin : '';
+    const cacheBust = encodeURIComponent(rawPath);
+
+    const candidates = [`${API_URL}/projects/${id}/logo-file?v=${cacheBust}`];
+    if (apiHost) candidates.push(`${apiHost}${encodedUploadsPath}?v=${cacheBust}`);
+    if (appHost && appHost !== apiHost) candidates.push(`${appHost}${encodedUploadsPath}?v=${cacheBust}`);
+
+    return Array.from(new Set(candidates));
+  };
+
+  const logoPreviewCandidates = getLogoPreviewCandidates(projectLogoPath);
+
+  useEffect(() => {
+    setLogoPreviewIndex(0);
+  }, [projectLogoPath]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let objectUrl = '';
+
+    const fetchLogoPreviewBlob = async () => {
+      setLogoPreviewBlobUrl('');
+
+      if (!id || !projectLogoPath) return;
+
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/projects/${id}/logo-file?v=${encodeURIComponent(String(projectLogoPath))}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed with status ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+
+        if (isMounted) {
+          setLogoPreviewBlobUrl(objectUrl);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLogoPreviewBlobUrl('');
+        }
+      }
+    };
+
+    fetchLogoPreviewBlob();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [id, projectLogoPath]);
 
   useEffect(() => {
     fetchProjectData();
@@ -84,6 +177,7 @@ const EditProject = () => {
       setProject({
         Project_Ref_Number: projectData.Project_Ref_Number || '',
         Project_Title: projectData.Project_Title || '',
+        Company_Full_Name: projectData.Company_Full_Name || projectData.Customer_Name || '',
         Warranty: projectData.Warranty || '',
         Preventive_Maintenance: projectData.Preventive_Maintenance || '',
         PM_Frequency: projectData.PM_Frequency || 2,
@@ -99,6 +193,8 @@ const EditProject = () => {
           Customer_Name: projectData.Customer_Name
         });
       }
+
+      setProjectLogoPath(projectData.file_path_logo || '');
 
       // Fetch branches from inventory
       const inventoryResponse = await fetch(`${API_URL}/inventory/project/${id}`, {
@@ -293,6 +389,46 @@ const EditProject = () => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddBranch();
+    }
+  };
+
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setLogoFile(file);
+  };
+
+  const handleUploadProjectLogo = async () => {
+    if (!logoFile) {
+      toast.error('Please choose a logo file first');
+      return;
+    }
+
+    try {
+      setUploadingLogo(true);
+      const token = localStorage.getItem('authToken');
+      const formData = new FormData();
+      formData.append('logo', logoFile);
+
+      const response = await fetch(`${API_URL}/projects/${id}/logo`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || data.message || 'Failed to upload project logo');
+      }
+
+      setProjectLogoPath(data.file_path_logo || '');
+      setLogoFile(null);
+      toast.success('Project logo uploaded successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload project logo');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -546,6 +682,33 @@ const EditProject = () => {
                     cursor: 'not-allowed'
                   }}
                 />
+
+                <div style={{ marginTop: '12px' }}>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    fontSize: '14px'
+                  }}>
+                    Full Company Name (for UAT digital stamp)
+                  </label>
+                  <input
+                    type="text"
+                    value={project.Company_Full_Name || ''}
+                    onChange={(e) => setProject({ ...project, Company_Full_Name: e.target.value })}
+                    placeholder="Enter full company name"
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '10px',
+                      fontSize: '15px',
+                      backgroundColor: 'white',
+                      color: '#111827'
+                    }}
+                  />
+                </div>
               </div>
 
               <div>
@@ -712,6 +875,85 @@ const EditProject = () => {
                   No branches yet. Add a branch above.
                 </p>
               )}
+            </div>
+          </div>
+
+          {/* Company Logo Upload */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '30px',
+            marginBottom: '25px',
+            boxShadow: '0 2px 15px rgba(0, 0, 0, 0.08)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px',
+              paddingBottom: '12px',
+              borderBottom: '2px solid #e5e7eb'
+            }}>
+              <Upload size={22} style={{ color: '#2563eb' }} />
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1f2937' }}>
+                Company Logo
+              </h2>
+            </div>
+
+            <p style={{ marginTop: 0, marginBottom: '12px', color: '#4b5563', fontSize: '14px' }}>
+              Upload the client/company logo to appear on UAT and PM forms.
+            </p>
+
+            {projectLogoPath ? (
+              <div style={{ marginBottom: '12px' }}>
+                {logoPreviewCandidates.length > 0 && logoPreviewIndex < logoPreviewCandidates.length ? (
+                  <img
+                    src={logoPreviewBlobUrl || logoPreviewCandidates[logoPreviewIndex]}
+                    alt="Project logo"
+                    onError={() => {
+                      if (logoPreviewBlobUrl) {
+                        setLogoPreviewBlobUrl('');
+                        return;
+                      }
+                      setLogoPreviewIndex((prev) => prev + 1);
+                    }}
+                    style={{ maxHeight: 80, maxWidth: 220, border: '1px solid #d1d5db', borderRadius: 8, padding: 8, background: '#fff' }}
+                  />
+                ) : (
+                  <div style={{ color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', padding: '10px 12px', borderRadius: 8, fontSize: '13px' }}>
+                    Logo path exists but image could not be loaded.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ marginBottom: '12px', color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '10px 12px', borderRadius: 8 }}>
+                No company logo uploaded yet.
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoFileChange}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={handleUploadProjectLogo}
+                disabled={!logoFile || uploadingLogo}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: (!logoFile || uploadingLogo) ? 'not-allowed' : 'pointer',
+                  backgroundColor: (!logoFile || uploadingLogo) ? '#9ca3af' : '#2563eb',
+                  color: 'white',
+                  fontWeight: '600'
+                }}
+              >
+                {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
+              </button>
             </div>
           </div>
 

@@ -114,6 +114,7 @@ class PMaintenance {
         SELECT COUNT(*) as count
         FROM PMAINTENANCE pm
         ${whereClause} 
+        AND
         YEAR(pm.PM_Date) = YEAR(CURDATE())
         AND MONTH(pm.PM_Date) = MONTH(CURDATE())
       `;

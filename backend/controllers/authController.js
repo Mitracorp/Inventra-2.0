@@ -3,6 +3,8 @@ const { formatResponse, generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
+const fs = require('fs');
+const path = require('path');
 
 const azureJwksClient = jwksClient({
   jwksUri: 'https://login.microsoftonline.com/common/discovery/v2.0/keys',
@@ -258,7 +260,7 @@ const getProfile = async (req, res, next) => {
  */
 const updateProfile = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, department } = req.body;
+    const { firstName, lastName, email, department, signature } = req.body;
     const userId = req.user.userId;
 
     // Check if email is being changed and if it's already taken
@@ -271,17 +273,28 @@ const updateProfile = async (req, res, next) => {
       }
     }
 
-    const success = await User.update(userId, {
-      firstName,
-      lastName,
-      email,
-      department
-    });
+    const profileFields = { firstName, lastName, email, department };
+    const hasProfileFieldChanges = Object.values(profileFields).some((value) => value !== undefined);
 
-    if (!success) {
-      return res.status(400).json(
-        formatResponse(false, null, 'Failed to update profile')
-      );
+    if (hasProfileFieldChanges) {
+      const success = await User.update(userId, profileFields);
+
+      if (!success) {
+        return res.status(400).json(
+          formatResponse(false, null, 'Failed to update profile')
+        );
+      }
+    }
+
+    if (signature) {
+      try {
+        const relativePath = await saveStaffSignature(userId, signature);
+        logger.info(`Staff signature updated for user #${userId}: ${relativePath}`);
+      } catch (sigErr) {
+        return res.status(400).json(
+          formatResponse(false, null, sigErr.message || 'Failed to save staff signature')
+        );
+      }
     }
 
     const updatedUser = await User.findById(userId);
@@ -447,34 +460,12 @@ const createUser = async (req, res, next) => {
 
     // Handle staff signature storage
     try {
-      if (!signature || typeof signature !== 'string' || !signature.startsWith('data:image/png;base64,')) {
-        return res.status(400).json(
-          formatResponse(false, null, 'Signature must be a Base64 PNG data URL')
-        );
-      }
-
-      const base64Data = signature.replace(/^data:image\/png;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
-
-      const fs = require('fs');
-      const path = require('path');
-      const uploadDir = path.join(__dirname, '../uploads/signature-staff');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
-      const filename = `signature_staff_${userId}.png`;
-      const fullPath = path.join(uploadDir, filename);
-      fs.writeFileSync(fullPath, buffer);
-
-      const relativePath = `uploads/signature-staff/${filename}`;
-      await User.updateSignPath(userId, relativePath);
+      const relativePath = await saveStaffSignature(userId, signature);
       logger.info(`Staff signature saved for user #${userId}: ${relativePath}`);
     } catch (sigErr) {
       logger.error('Error saving staff signature:', sigErr);
-      // If signature fails, consider rolling back user creation or return error
-      return res.status(500).json(
-        formatResponse(false, null, 'Failed to save staff signature')
+      return res.status(400).json(
+        formatResponse(false, null, sigErr.message || 'Failed to save staff signature')
       );
     }
 
@@ -651,4 +642,26 @@ module.exports = {
   createUser,
   updateUser,
   verifyPassword
+};
+
+const saveStaffSignature = async (userId, signature) => {
+  if (!signature || typeof signature !== 'string' || !signature.startsWith('data:image/png;base64,')) {
+    throw new Error('Signature must be a Base64 PNG data URL');
+  }
+
+  const base64Data = signature.replace(/^data:image\/png;base64,/, '');
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  const uploadDir = path.join(__dirname, '../uploads/signature-staff');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const filename = `signature_staff_${userId}.png`;
+  const fullPath = path.join(uploadDir, filename);
+  fs.writeFileSync(fullPath, buffer);
+
+  const relativePath = `uploads/signature-staff/${filename}`;
+  await User.updateSignPath(userId, relativePath);
+  return relativePath;
 };

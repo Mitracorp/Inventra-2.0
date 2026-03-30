@@ -7,12 +7,14 @@ class Project {
     this.Project_ID = project.Project_ID;
     this.Project_Ref_Number = project.Project_Ref_Number;
     this.Project_Title = project.Project_Title;
+    this.Company_Full_Name = project.Company_Full_Name;
     this.Warranty = project.Warranty;
     this.Preventive_Maintenance = project.Preventive_Maintenance;
     this.PM_Frequency = project.PM_Frequency;
     this.Start_Date = project.Start_Date;
     this.End_Date = project.End_Date;
     this.Antivirus = project.Antivirus;
+    this.file_path_logo = project.file_path_logo;
   }
 
   // Get all projects with customer information from INVENTORY table
@@ -23,12 +25,14 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
@@ -70,12 +74,14 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
@@ -120,12 +126,14 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
@@ -161,11 +169,12 @@ class Project {
       }
       
       const [result] = await pool.execute(
-        `INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Company_Full_Name, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           projectData.Project_Ref_Number,
           projectData.Project_Title,
+          projectData.Company_Full_Name || null,
           projectData.Warranty,
           projectData.Preventive_Maintenance,
           projectData.PM_Frequency || 2,
@@ -189,6 +198,7 @@ class Project {
         `UPDATE PROJECT SET 
          Project_Ref_Number = ?, 
          Project_Title = ?, 
+         Company_Full_Name = ?,
          Warranty = ?, 
          Preventive_Maintenance = ?, 
          PM_Frequency = ?,
@@ -199,6 +209,7 @@ class Project {
         [
           this.Project_Ref_Number,
           this.Project_Title,
+          this.Company_Full_Name || null,
           this.Warranty,
           this.Preventive_Maintenance,
           this.PM_Frequency,
@@ -226,6 +237,19 @@ class Project {
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error in Project.delete:', error);
+      throw error;
+    }
+  }
+
+  static async updateLogoPath(id, filePathLogo) {
+    try {
+      const [result] = await pool.execute(
+        'UPDATE PROJECT SET file_path_logo = ? WHERE Project_ID = ?',
+        [filePathLogo, id]
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error in Project.updateLogoPath:', error);
       throw error;
     }
   }

@@ -1,9 +1,141 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Plus, Eye, Edit, Trash2, Users, Calendar, Package, Award, Shield, Wrench, Clock, CheckCircle, XCircle, AlertCircle, FolderOpen } from 'lucide-react';
 import { API_URL } from '../config/api';
 import usePageTitle from '../hooks/usePageTitle';
 import toast from '../utils/toast';
+
+const buildLogoCandidates = (projectId, logoPath, baseUrl) => {
+  if (!projectId || !logoPath) return [];
+
+  const rawPath = String(logoPath).trim();
+  if (!rawPath) return [];
+  if (rawPath.startsWith('http://') || rawPath.startsWith('https://')) return [rawPath];
+
+  const normalized = rawPath.replace(/\\/g, '/');
+  const uploadsMarker = '/uploads/';
+  const uploadsIndex = normalized.toLowerCase().indexOf(uploadsMarker);
+
+  let uploadsPath = '';
+  if (uploadsIndex >= 0) {
+    uploadsPath = normalized.substring(uploadsIndex);
+  } else if (normalized.startsWith('uploads/')) {
+    uploadsPath = `/${normalized}`;
+  } else if (normalized.startsWith('/uploads/')) {
+    uploadsPath = normalized;
+  } else {
+    const fileName = normalized.split('/').pop();
+    uploadsPath = fileName ? `/uploads/project-logo/${fileName}` : '';
+  }
+
+  if (!uploadsPath) return [];
+
+  const encodedUploadsPath = encodeURI(uploadsPath);
+  const apiHost = String(baseUrl || '').replace(/\/+$/, '');
+  const appHost = typeof window !== 'undefined' ? window.location.origin : '';
+
+  const cacheBust = encodeURIComponent(rawPath);
+  const candidates = [`${API_URL}/projects/${projectId}/logo-file?v=${cacheBust}`];
+  if (apiHost) candidates.push(`${apiHost}${encodedUploadsPath}?v=${cacheBust}`);
+  if (appHost && appHost !== apiHost) candidates.push(`${appHost}${encodedUploadsPath}?v=${cacheBust}`);
+
+  return Array.from(new Set(candidates));
+};
+
+const ProjectLogo = ({ projectId, logoPath, customerName, baseUrl }) => {
+  const candidates = useMemo(
+    () => buildLogoCandidates(projectId, logoPath, baseUrl),
+    [projectId, logoPath, baseUrl]
+  );
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [blobLogoUrl, setBlobLogoUrl] = useState('');
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [logoPath]);
+
+  useEffect(() => {
+    let isMounted = true;
+    let objectUrl = '';
+
+    const fetchLogoAsBlob = async () => {
+      setBlobLogoUrl('');
+
+      if (!projectId || !logoPath) return;
+
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/projects/${projectId}/logo-file?v=${encodeURIComponent(String(logoPath))}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed with status ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+
+        if (isMounted) {
+          setBlobLogoUrl(objectUrl);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setBlobLogoUrl('');
+        }
+      }
+    };
+
+    fetchLogoAsBlob();
+
+    return () => {
+      isMounted = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [projectId, logoPath]);
+
+  if (!blobLogoUrl && (!candidates.length || activeIndex >= candidates.length)) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        width: '86px',
+        height: '58px',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 255, 255, 0.45)',
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '6px',
+        flexShrink: 0
+      }}
+    >
+      <img
+        src={blobLogoUrl || candidates[activeIndex]}
+        alt={`${customerName || 'Project'} logo`}
+        onError={() => {
+          if (blobLogoUrl) {
+            setBlobLogoUrl('');
+            return;
+          }
+          setActiveIndex((prev) => prev + 1);
+        }}
+        style={{
+          maxWidth: '100%',
+          maxHeight: '100%',
+          objectFit: 'contain',
+          display: 'block'
+        }}
+      />
+    </div>
+  );
+};
 
 const Projects = () => {
   usePageTitle('Projects');
@@ -22,6 +154,7 @@ const Projects = () => {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const BASE_URL = API_URL.replace('/api/v1', '');
 
   // Get user role from localStorage
   useEffect(() => {
@@ -500,39 +633,48 @@ const Projects = () => {
                       <StatusIcon size={14} />
                       {projectStatus}
                     </div>
-                    <h3 style={{
-                      margin: '0 0 10px 0',
-                      fontSize: '20px',
-                      fontWeight: '700',
-                      paddingRight: '100px',
-                      lineHeight: '1.3'
-                    }}>
-                      {project.Customer_Name || 'No Customer'}
-                    </h3>
-                    <p style={{
-                      margin: '0 0 8px 0',
-                      fontSize: '13px',
-                      opacity: 0.85,
-                      fontWeight: '400',
-                      lineHeight: '1.5',
-                      paddingRight: '100px',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      maxHeight: '3em'
-                    }}>
-                      {project.Project_Title || 'No Project Title'}
-                    </p>
-                    <p style={{
-                      margin: 0,
-                      fontSize: '12px',
-                      opacity: 0.75,
-                      fontWeight: '500'
-                    }}>
-                      Ref: {project.Project_Ref_Number || 'N/A'}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingRight: '100px' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{
+                          margin: '0 0 10px 0',
+                          fontSize: '20px',
+                          fontWeight: '700',
+                          lineHeight: '1.3'
+                        }}>
+                          {project.Customer_Name || 'No Customer'}
+                        </h3>
+                        <p style={{
+                          margin: '0 0 8px 0',
+                          fontSize: '13px',
+                          opacity: 0.85,
+                          fontWeight: '400',
+                          lineHeight: '1.5',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxHeight: '3em'
+                        }}>
+                          {project.Project_Title || 'No Project Title'}
+                        </p>
+                        <p style={{
+                          margin: 0,
+                          fontSize: '12px',
+                          opacity: 0.75,
+                          fontWeight: '500'
+                        }}>
+                          Ref: {project.Project_Ref_Number || 'N/A'}
+                        </p>
+                      </div>
+
+                      <ProjectLogo
+                        projectId={project.Project_ID}
+                        logoPath={project.file_path_logo}
+                        customerName={project.Customer_Name}
+                        baseUrl={BASE_URL}
+                      />
+                    </div>
                   </div>
 
                   {/* Card Body */}

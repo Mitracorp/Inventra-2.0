@@ -249,6 +249,15 @@ const PreventiveMaintenance = () => {
       ? '0 6px 20px rgba(0, 0, 0, 0.25)'
       : '0 4px 15px rgba(0, 0, 0, 0.2)';
   };
+
+  const openOverviewPage = (type) => {
+    const params = new URLSearchParams();
+    if (selectedCustomer) params.set('customer', selectedCustomer);
+    if (selectedBranch) params.set('branch', selectedBranch);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/maintenance/overview/${type}${suffix}`);
+  };
+
   const [selectedItemsToCopy, setSelectedItemsToCopy] = useState([]);
   const [showCopyConfirm, setShowCopyConfirm] = useState(false);
   const [loadingSourceChecklist, setLoadingSourceChecklist] = useState(false);
@@ -748,6 +757,66 @@ const PreventiveMaintenance = () => {
   Object.keys(groupedByCategory).forEach(category => {
     groupedByCategory[category].checklistItems.sort((a, b) => a.Checklist_ID - b.Checklist_ID);
   });
+
+  const getSortedAssetPMRecords = (asset) => {
+    return (asset?.allPMRecords || [])
+      .slice()
+      .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date));
+  };
+
+  const isUnsignedPMStatus = (status) => {
+    return (status || '').toLowerCase() !== 'completed';
+  };
+
+  const getUnsignedPM1PM2CountForAsset = (asset) => {
+    const sortedPMs = getSortedAssetPMRecords(asset);
+    if (sortedPMs.length === 0) return 0;
+    const firstTwo = sortedPMs.slice(0, 2);
+    return firstTwo.filter(pm => isUnsignedPMStatus(pm.PM_Status || pm.Status)).length;
+  };
+
+  const isUnsignedPM1AndPM2Asset = (asset) => {
+    return getUnsignedPM1PM2CountForAsset(asset) > 0;
+  };
+
+  const summaryCards = useMemo(() => {
+    const allAssets = [];
+
+    Object.keys(groupedByCategory).forEach((category) => {
+      const assets = Object.values(groupedByCategory[category]?.assets || {});
+      assets.forEach((asset) => {
+        allAssets.push({
+          ...asset,
+          categoryName: category
+        });
+      });
+    });
+
+    return {
+      totalAssets: allAssets.length,
+      unsignedPM1AndPM2: allAssets.reduce((sum, asset) => sum + getUnsignedPM1PM2CountForAsset(asset), 0),
+      onlyOnePM: allAssets.filter(asset => asset.pmCount === 1).length,
+      noPMYet: allAssets.filter(asset => asset.pmCount === 0).length
+    };
+  }, [groupedByCategory]);
+
+  const syncedTableStats = useMemo(() => {
+    const pmRows = (pmRecords || []).filter(record => record.PM_ID != null);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const thisMonth = pmRows.filter((record) => {
+      if (!record.PM_Date) return false;
+      const pmDate = new Date(record.PM_Date);
+      return pmDate.getFullYear() === currentYear && pmDate.getMonth() === currentMonth;
+    }).length;
+
+    return {
+      total: pmRows.length,
+      thisMonth
+    };
+  }, [pmRecords]);
 
   const getCheckResultIcon = (isOk) => {
     if (isOk === 1 || isOk === true) {
@@ -1520,24 +1589,45 @@ const PreventiveMaintenance = () => {
       <div style={{ padding: '0 20px' }}>
 
       {/* Statistics Cards */}
-      {statistics && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-          <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('total')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open all PM records page"
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Package size={32} style={{ opacity: 0.9 }} />
                 <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Total PM Records</div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{statistics.total}</div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>
+                {selectedCustomer && selectedBranch ? syncedTableStats.total : (statistics?.total ?? 0)}
+              </div>
             </div>
           </div>
 
-          <div 
-            className="card" 
-            style={{ 
-              padding: '20px', 
-              background: isCustomerRole() ? 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)' : 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', 
-              color: 'white', 
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: isCustomerRole() ? 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)' : 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              color: 'white',
               border: 'none',
               cursor: isCustomerRole() ? 'not-allowed' : 'pointer',
               transition: 'transform 0.2s, box-shadow 0.2s',
@@ -1556,25 +1646,124 @@ const PreventiveMaintenance = () => {
                 e.currentTarget.style.boxShadow = 'none';
               }
             }}
-            title={isCustomerRole() ? 'Customer accounts cannot access PM Schedule' : 'View PM Schedule'}
+            title={isCustomerRole() ? 'Customer accounts cannot access PM Calendar' : 'Open PM Calendar'}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Calendar size={32} style={{ opacity: 0.9 }} />
-              <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM Schedule</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Calendar size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM Calendar</div>
+              </div>
+              <ChevronRight size={26} style={{ opacity: 0.9 }} />
             </div>
           </div>
 
-          <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white', border: 'none' }}>
+          <div
+            className="card"
+            style={{ padding: '20px', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white', border: 'none', cursor: 'pointer' }}
+            onClick={() => openOverviewPage('month')}
+            title="Open PM this month page"
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Clock size={32} style={{ opacity: 0.9 }} />
                 <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM This Month</div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{statistics.thisMonth}</div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>
+                {selectedCustomer && selectedBranch ? syncedTableStats.thisMonth : (statistics?.thisMonth ?? 0)}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('unsigned')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open unsigned PM1 and PM2 page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <AlertCircle size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Unsigned PM1 & PM2</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.unsignedPM1AndPM2}</div>
+            </div>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('one-pm')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open assets with one PM page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FileText size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Only One PM</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.onlyOnePM}</div>
+            </div>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('no-pm')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open assets with no PM page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Package size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>No PM Done</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.noPMYet}</div>
+            </div>
+          </div>
+      </div>
 
       {/* Filters */}
       <div className="card" style={{ marginBottom: '15px' }}>
@@ -1897,7 +2086,7 @@ const PreventiveMaintenance = () => {
           if (showOnlyWithPM) {
             filteredRecords = filteredRecords.filter(r => r.pmCount > 0);
           }
-          
+
           // Apply column filters
           const columnFilteredRecords = filteredRecords.filter(record => {
             for (const columnKey in columnFilters) {

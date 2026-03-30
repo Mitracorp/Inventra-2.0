@@ -3,6 +3,8 @@ const Customer = require('../models/Customer');
 const Inventory = require('../models/Inventory');
 const { logProjectChange, detectChanges } = require('../utils/auditLogger');
 const { pool } = require('../config/database');
+const fs = require('fs');
+const path = require('path');
 
 // Get all projects
 exports.getAllProjects = async (req, res) => {
@@ -388,6 +390,7 @@ exports.updateProject = async (req, res) => {
       Project_ID: id,
       Project_Ref_Number: updates.Project_Ref_Number || projectData.Project_Ref_Number,
       Project_Title: updates.Project_Title || projectData.Project_Title,
+      Company_Full_Name: updates.Company_Full_Name !== undefined ? updates.Company_Full_Name : projectData.Company_Full_Name,
       Warranty: updates.Warranty !== undefined ? updates.Warranty : projectData.Warranty,
       Preventive_Maintenance: updates.Preventive_Maintenance !== undefined ? updates.Preventive_Maintenance : projectData.Preventive_Maintenance,
       PM_Frequency: updates.PM_Frequency !== undefined ? updates.PM_Frequency : projectData.PM_Frequency,
@@ -804,6 +807,95 @@ exports.revertProjectDelete = async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to restore project',
       message: error.message 
+    });
+  }
+};
+
+// Upload or replace project/company logo
+exports.uploadProjectLogo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No logo file uploaded'
+      });
+    }
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project not found'
+      });
+    }
+
+    const newPath = req.file.path.replace(/\\/g, '/').replace(/^.*backend\//, '');
+
+    const updated = await Project.updateLogoPath(id, newPath);
+    if (!updated) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save logo path'
+      });
+    }
+
+    // Cleanup old logo file if present and different
+    if (project.file_path_logo && project.file_path_logo !== newPath) {
+      const oldAbsPath = path.join(__dirname, '..', project.file_path_logo);
+      if (fs.existsSync(oldAbsPath)) {
+        try {
+          fs.unlinkSync(oldAbsPath);
+        } catch (e) {
+          // Ignore old file cleanup failures
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Project logo uploaded successfully',
+      file_path_logo: newPath
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to upload project logo',
+      message: error.message
+    });
+  }
+};
+
+// Serve project/company logo by project ID
+exports.getProjectLogoFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+
+    if (!project || !project.file_path_logo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project logo not found'
+      });
+    }
+
+    const normalizedPath = String(project.file_path_logo).replace(/\\/g, '/').replace(/^\/+/, '');
+    const absolutePath = path.join(__dirname, '..', normalizedPath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project logo file is missing on server'
+      });
+    }
+
+    return res.sendFile(absolutePath);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to load project logo',
+      message: error.message
     });
   }
 };

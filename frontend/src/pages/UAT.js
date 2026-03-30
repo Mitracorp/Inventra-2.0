@@ -1,0 +1,1199 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckCircle2, ClipboardCheck, PenTool, Search, X } from 'lucide-react';
+import { API_URL } from '../config/api';
+import usePageTitle from '../hooks/usePageTitle';
+
+const COMPUTER_CHECKLIST = [
+  {
+    title: '1. Check Physical Model & Specification',
+    items: [
+      'Processor',
+      'Memory',
+      'Hard Drive / SSD',
+      'Video Card',
+      'Screen Size & Resolution'
+    ]
+  },
+  {
+    title: '2. Functionality',
+    items: [
+      'Start-up Windows',
+      'Windows Settings',
+      'Check wireless connection',
+      'Check power connection',
+      'Check integrated camera',
+      'Check audio and microphone',
+      'Check keyboard and mouse'
+    ]
+  },
+  {
+    title: '3. Check Installation and Configuration',
+    items: [
+      'Windows Installed & Activated',
+      'Antivirus Installed',
+      'Google Chrome',
+      'Adobe Acrobat Reader',
+      'Microsoft Office LTSC Standard 2024'
+    ]
+  }
+];
+
+const PRINTER_CHECKLIST = [
+  {
+    title: 'Check Physical Model & Specification',
+    items: [
+      'Network Port',
+      'USB Port',
+      'Wireless Connection'
+    ]
+  },
+  {
+    title: 'Functionality',
+    items: [
+      'Cartridge Inserted',
+      'Power On',
+      'Test-Print',
+      'Self-Print'
+    ]
+  },
+  {
+    title: 'Check Network Configuration and Connection',
+    items: ['Network Configured']
+  }
+];
+
+const PROJECTOR_CHECKLIST = [
+  {
+    title: 'Check Physical Model & Specification',
+    items: [
+      'Network Port',
+      'USB Port',
+      'HDMI Port'
+    ]
+  },
+  {
+    title: 'Functionality',
+    items: [
+      'Power On',
+      'Display On'
+    ]
+  }
+];
+
+const getChecklistByCategory = (asset = {}) => {
+  const category = String(asset.Category || '').toLowerCase();
+  const itemName = String(asset.Item_Name || '').toLowerCase();
+  const model = String(asset.Model || '').toLowerCase();
+  const haystack = `${category} ${itemName} ${model}`;
+
+  if (haystack.includes('printer') || haystack.includes('laserjet') || haystack.includes('mfp')) {
+    return PRINTER_CHECKLIST;
+  }
+
+  if (haystack.includes('projector') || haystack.includes('epson')) {
+    return PROJECTOR_CHECKLIST;
+  }
+
+  return COMPUTER_CHECKLIST;
+};
+
+const getFormCategoryTitle = (asset = {}) => {
+  const category = String(asset.Category || '').toLowerCase();
+  const itemName = String(asset.Item_Name || '').toLowerCase();
+  const haystack = `${category} ${itemName}`;
+
+  if (haystack.includes('printer') && haystack.includes('color')) {
+    return 'PENCETAK LASER (BERWARNA) PELBAGAI FUNGSI';
+  }
+
+  if (haystack.includes('printer')) {
+    return 'PENCETAK LASER (HITAM PUTIH)';
+  }
+
+  if (haystack.includes('projector')) {
+    return 'PROJEKTOR';
+  }
+
+  if (haystack.includes('tablet')) {
+    return 'TABLET (2 IN 1)';
+  }
+
+  if (haystack.includes('laptop') || haystack.includes('riba') || haystack.includes('notebook')) {
+    return 'KOMPUTER RIBA (2 IN 1)';
+  }
+
+  return 'KOMPUTER MEJA (ALL-IN-ONE)';
+};
+
+const buildInitialResults = (template) => {
+  const initial = {};
+  template.forEach((section, sectionIndex) => {
+    section.items.forEach((_, itemIndex) => {
+      initial[`${sectionIndex}-${itemIndex}`] = false;
+    });
+  });
+  return initial;
+};
+
+const getAssetTypeKey = (asset = {}) => {
+  const category = String(asset.Category || '').toLowerCase();
+  const itemName = String(asset.Item_Name || '').toLowerCase();
+  const model = String(asset.Model || '').toLowerCase();
+  const haystack = `${category} ${itemName} ${model}`;
+
+  if (haystack.includes('printer') || haystack.includes('laserjet') || haystack.includes('mfp')) {
+    return 'Printer';
+  }
+
+  if (haystack.includes('projector') || haystack.includes('epson')) {
+    return 'Projector';
+  }
+
+  if (
+    haystack.includes('tablet') ||
+    haystack.includes('2 in 1') ||
+    haystack.includes('2in1') ||
+    haystack.includes('detachable')
+  ) {
+    return 'Tablet';
+  }
+
+  if (haystack.includes('laptop') || haystack.includes('notebook') || haystack.includes('riba')) {
+    return 'Notebook/Laptop';
+  }
+
+  if (haystack.includes('server')) {
+    return 'Server';
+  }
+
+  if (haystack.includes('router') || haystack.includes('switch') || haystack.includes('network')) {
+    return 'Network';
+  }
+
+  return 'Desktop/AIO';
+};
+
+const formatHistoryDate = (dateValue) => {
+  if (!dateValue) return '-';
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return '-';
+  return parsed.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const createClientDocumentId = () => {
+  const now = new Date();
+  const datePart = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0')
+  ].join('');
+  const randomPart = Math.random().toString(16).slice(2, 10).toUpperCase().padEnd(8, '0');
+  return `UAT-${datePart}-${randomPart}`;
+};
+
+const SignatureDialog = ({ isOpen, onClose, onConfirm, loading }) => {
+  const canvasRef = useRef(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    canvas.width = 560;
+    canvas.height = 230;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#111827';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    setHasSignature(false);
+  }, [isOpen]);
+
+  const getPoint = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const point = event.touches ? event.touches[0] : event;
+    return {
+      x: (point.clientX - rect.left) * scaleX,
+      y: (point.clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDrawing = (event) => {
+    event.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    const { x, y } = getPoint(event);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+    setHasSignature(true);
+  };
+
+  const draw = (event) => {
+    if (!isDrawing) return;
+    event.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    const { x, y } = getPoint(event);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
+  };
+
+  const handleConfirm = () => {
+    if (!hasSignature) {
+      alert('Please sign before submitting the UAT form.');
+      return;
+    }
+
+    onConfirm(canvasRef.current.toDataURL('image/png'));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={overlayStyle}>
+      <div style={dialogStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, color: '#111827' }}>Recipient Signature</h3>
+          <button type="button" onClick={onClose} style={closeButtonStyle} disabled={loading}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <p style={{ marginTop: 0, color: '#374151', fontSize: 14 }}>
+          Sign inside the box to confirm this UAT checklist.
+        </p>
+
+        <canvas
+          ref={canvasRef}
+          style={{ width: '100%', border: '1px solid #9ca3af', borderRadius: 10, touchAction: 'none', background: '#fff' }}
+          onMouseDown={startDrawing}
+          onMouseMove={draw}
+          onMouseUp={stopDrawing}
+          onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+        />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+          <button type="button" style={secondaryButtonStyle} onClick={clearSignature} disabled={loading}>
+            Clear Signature
+          </button>
+          <button type="button" style={primaryButtonStyle} onClick={handleConfirm} disabled={loading}>
+            {loading ? 'Generating Form...' : 'Submit & Generate UAT'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SuccessDialog = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div style={overlayStyle}>
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 16,
+          padding: 24,
+          width: 'min(560px, 100%)',
+          boxShadow: '0 20px 45px rgba(0,0,0,0.25)',
+          border: '1px solid #dbeafe'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '999px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <CheckCircle2 size={24} color="#fff" />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, color: '#111827', fontSize: '1.2rem' }}>UAT Form Generated</h3>
+            <p style={{ margin: '4px 0 0 0', color: '#4b5563', fontSize: 14 }}>
+              Your file has been downloaded successfully.
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#14532d',
+            borderRadius: 10,
+            padding: '10px 12px',
+            fontWeight: 600,
+            fontSize: 14
+          }}
+        >
+          {message}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+          <button type="button" style={primaryButtonStyle} onClick={onClose}>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UAT = () => {
+  usePageTitle('UAT Form');
+
+  const [assets, setAssets] = useState([]);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedAssetType, setSelectedAssetType] = useState('');
+  const [assetSearch, setAssetSearch] = useState('');
+  const [selectedAssetId, setSelectedAssetId] = useState('');
+  const [uatHistoryByAssetId, setUatHistoryByAssetId] = useState({});
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showOnlyWithUAT, setShowOnlyWithUAT] = useState(false);
+
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientDepartment, setRecipientDepartment] = useState('');
+  const [recipientContact, setRecipientContact] = useState('');
+  const [contractNo, setContractNo] = useState('CT240000000025913');
+
+  const [results, setResults] = useState({});
+  const [remarks, setRemarks] = useState({});
+  const [showSignature, setShowSignature] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successDialogMessage, setSuccessDialogMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [viewingAssetId, setViewingAssetId] = useState('');
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      setLoadingAssets(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/assets?page=1&limit=5000&sortField=Asset_ID&sortDirection=DESC`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch assets (${response.status})`);
+        }
+
+        const data = await response.json();
+        setAssets(Array.isArray(data.data) ? data.data : []);
+      } catch (error) {
+        console.error('Error fetching assets:', error);
+        alert('Unable to load assets for UAT. Please refresh and try again.');
+      } finally {
+        setLoadingAssets(false);
+      }
+    };
+
+    fetchAssets();
+  }, []);
+
+  const customerOptions = useMemo(() => {
+    const unique = Array.from(
+      new Set(
+        assets
+          .map((asset) => asset.Customer_Name)
+          .filter(Boolean)
+      )
+    );
+
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [assets]);
+
+  const branchOptions = useMemo(() => {
+    if (!selectedCustomer) return [];
+
+    const unique = Array.from(
+      new Set(
+        assets
+          .filter((asset) => String(asset.Customer_Name || '') === String(selectedCustomer))
+          .map((asset) => asset.Branch)
+          .filter(Boolean)
+      )
+    );
+
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [assets, selectedCustomer]);
+
+  const scopedAssets = useMemo(() => {
+    if (!selectedCustomer || !selectedBranch) return [];
+
+    return assets.filter((asset) =>
+      String(asset.Customer_Name || '') === String(selectedCustomer) &&
+      String(asset.Branch || '') === String(selectedBranch)
+    );
+  }, [assets, selectedCustomer, selectedBranch]);
+
+  const assetTypeCards = useMemo(() => {
+    const counts = scopedAssets.reduce((acc, asset) => {
+      const key = getAssetTypeKey(asset);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    const orderedTypes = ['Desktop/AIO', 'Notebook/Laptop', 'Tablet', 'Printer', 'Projector', 'Server', 'Network'];
+
+    return orderedTypes
+      .filter((key) => (counts[key] || 0) > 0 || key === 'Tablet')
+      .map((key) => ({ key, count: counts[key] || 0 }));
+  }, [scopedAssets]);
+
+  const filteredAssets = useMemo(() => {
+    if (!selectedAssetType) return [];
+
+    let items = scopedAssets.filter((asset) => getAssetTypeKey(asset) === selectedAssetType);
+
+    if (!assetSearch.trim()) return items;
+
+    const term = assetSearch.toLowerCase();
+    return items.filter((asset) => {
+      const serial = String(asset.Asset_Serial_Number || '').toLowerCase();
+      const tag = String(asset.Asset_Tag_ID || '').toLowerCase();
+      const item = String(asset.Item_Name || '').toLowerCase();
+      const model = String(asset.Model || '').toLowerCase();
+      const recipient = String(asset.Recipient_Name || '').toLowerCase();
+      return serial.includes(term) || tag.includes(term) || item.includes(term) || model.includes(term) || recipient.includes(term);
+    });
+  }, [scopedAssets, selectedAssetType, assetSearch]);
+
+  const tableAssets = useMemo(() => {
+    const enhanced = filteredAssets.map((asset) => {
+      const history = uatHistoryByAssetId[String(asset.Asset_ID)] || {};
+      return {
+        ...asset,
+        uatCount: Number(history.count || 0),
+        latestUatDate: history.latestGeneratedAt || null,
+        latestRecipientName: history.latestRecipientName || '',
+        latestFileName: history.latestAvailableFileName || history.latestFileName || '',
+        latestDocumentId: history.latestAvailableDocumentId || history.latestDocumentId || ''
+      };
+    });
+
+    const withFilter = showOnlyWithUAT
+      ? enhanced.filter((asset) => asset.uatCount > 0)
+      : enhanced;
+
+    return withFilter.sort((a, b) => {
+      const aTime = a.latestUatDate ? new Date(a.latestUatDate).getTime() : 0;
+      const bTime = b.latestUatDate ? new Date(b.latestUatDate).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+      return String(a.Asset_Serial_Number || '').localeCompare(String(b.Asset_Serial_Number || ''));
+    });
+  }, [filteredAssets, showOnlyWithUAT, uatHistoryByAssetId]);
+
+  useEffect(() => {
+    const fetchUatHistory = async () => {
+      if (!selectedCustomer || !selectedBranch || !selectedAssetType) {
+        setUatHistoryByAssetId({});
+        return;
+      }
+
+      setLoadingHistory(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const query = new URLSearchParams({
+          customerName: selectedCustomer,
+          branch: selectedBranch,
+          assetType: selectedAssetType
+        });
+
+        const response = await fetch(`${API_URL}/uat/history-summary?${query.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch UAT history (${response.status})`);
+        }
+
+        const payload = await response.json();
+        const nextMap = {};
+        (Array.isArray(payload.data) ? payload.data : []).forEach((entry) => {
+          if (!entry?.assetId) return;
+          nextMap[String(entry.assetId)] = entry;
+        });
+        setUatHistoryByAssetId(nextMap);
+      } catch (error) {
+        console.error('Error fetching UAT history summary:', error);
+        setUatHistoryByAssetId({});
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchUatHistory();
+  }, [selectedCustomer, selectedBranch, selectedAssetType]);
+
+  useEffect(() => {
+    setSelectedBranch('');
+    setSelectedAssetType('');
+    setAssetSearch('');
+    setSelectedAssetId('');
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    setSelectedAssetType('');
+    setAssetSearch('');
+    setSelectedAssetId('');
+  }, [selectedBranch]);
+
+  useEffect(() => {
+    setAssetSearch('');
+    setSelectedAssetId('');
+    setShowOnlyWithUAT(false);
+  }, [selectedAssetType]);
+
+  const selectedAsset = useMemo(
+    () => assets.find((asset) => String(asset.Asset_ID) === String(selectedAssetId)),
+    [assets, selectedAssetId]
+  );
+
+  const checklistTemplate = useMemo(() => getChecklistByCategory(selectedAsset), [selectedAsset]);
+
+  useEffect(() => {
+    if (!selectedAsset) {
+      setRecipientName('');
+      setRecipientDepartment('');
+      setRecipientContact('');
+      setResults({});
+      setRemarks({});
+      return;
+    }
+
+    setRecipientName(selectedAsset.Recipient_Name || '');
+    setRecipientDepartment(selectedAsset.Department || '');
+    setRecipientContact(selectedAsset.Contact_Number || selectedAsset.Contact_Number1 || '');
+    setResults(buildInitialResults(checklistTemplate));
+    setRemarks({});
+  }, [selectedAsset, checklistTemplate]);
+
+  const totalChecklistItems = useMemo(
+    () => checklistTemplate.reduce((total, section) => total + section.items.length, 0),
+    [checklistTemplate]
+  );
+
+  const checkedCount = useMemo(
+    () => Object.values(results).filter(Boolean).length,
+    [results]
+  );
+
+  const allChecked = totalChecklistItems > 0 && checkedCount === totalChecklistItems;
+
+  const toggleResult = (sectionIndex, itemIndex) => {
+    const key = `${sectionIndex}-${itemIndex}`;
+    setResults((previous) => ({
+      ...previous,
+      [key]: !previous[key]
+    }));
+  };
+
+  const isSectionFullyChecked = (sectionIndex, itemCount) => {
+    if (!itemCount) return false;
+    return Array.from({ length: itemCount }).every((_, itemIndex) => Boolean(results[`${sectionIndex}-${itemIndex}`]));
+  };
+
+  const setSectionCheckedState = (sectionIndex, itemCount, checked) => {
+    setResults((previous) => {
+      const next = { ...previous };
+      for (let itemIndex = 0; itemIndex < itemCount; itemIndex += 1) {
+        next[`${sectionIndex}-${itemIndex}`] = checked;
+      }
+      return next;
+    });
+  };
+
+  const canOpenSignature = selectedAsset && allChecked && recipientName.trim();
+
+  const handleGenerate = async (signatureBase64) => {
+    if (!selectedAsset) return;
+
+    const documentId = createClientDocumentId();
+
+    const checklistSections = checklistTemplate.map((section, sectionIndex) => ({
+      title: section.title,
+      items: section.items.map((label, itemIndex) => {
+        const key = `${sectionIndex}-${itemIndex}`;
+        return {
+          label,
+          checked: Boolean(results[key]),
+          remarks: remarks[key] || ''
+        };
+      })
+    }));
+
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+
+    const payload = {
+      documentId,
+      contractNo,
+      formTitle: 'USER ACCEPTANCE TEST (UAT) FORM',
+      categoryTitle: getFormCategoryTitle(selectedAsset),
+      recipient: {
+        name: recipientName,
+        department: recipientDepartment,
+        contact: recipientContact
+      },
+      asset: {
+        Asset_ID: selectedAsset.Asset_ID,
+        Asset_Serial_Number: selectedAsset.Asset_Serial_Number,
+        Asset_Tag_ID: selectedAsset.Asset_Tag_ID,
+        Item_Name: selectedAsset.Item_Name,
+        Model: selectedAsset.Model,
+        Category: selectedAsset.Category,
+        Branch: selectedAsset.Branch,
+        Customer_Name: selectedAsset.Customer_Name,
+        accessories: selectedAsset.Peripherals || selectedAsset.Accessories || '-'
+      },
+      checklistSections,
+      signature: signatureBase64,
+      signedAt: new Date().toISOString(),
+      submittedBy: userInfo.username || 'System User'
+    };
+
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/uat/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || `Failed (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const filename = `UAT_${documentId}_ASSET_${selectedAsset.Asset_ID}.pdf`;
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setShowSignature(false);
+      setSuccessDialogMessage(`UAT form generated successfully for ${selectedAsset.Asset_Serial_Number || selectedAsset.Asset_ID}.`);
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error('Error generating UAT form:', error);
+      alert(`Failed to generate UAT form: ${error.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleViewLatestUat = async (asset) => {
+    const fileName = asset?.latestFileName;
+    if (!fileName) {
+      alert('No generated UAT form found for this asset yet.');
+      return;
+    }
+
+    setViewingAssetId(String(asset.Asset_ID));
+    try {
+      const token = localStorage.getItem('authToken');
+      const preferredName = asset?.latestDocumentId
+        ? `UAT_${asset.latestDocumentId}_ASSET_${asset.Asset_ID}.pdf`
+        : (asset?.latestFileName || `UAT_ASSET_${asset.Asset_ID}.pdf`);
+
+      const tokenResponse = await fetch(`${API_URL}/uat/report-link/${encodeURIComponent(fileName)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error(`Unable to prepare UAT view (${tokenResponse.status})`);
+      }
+
+      const tokenPayload = await tokenResponse.json();
+      const viewToken = tokenPayload?.token;
+      if (!viewToken) {
+        throw new Error('Missing view token for UAT report');
+      }
+
+      const reportUrl = `${API_URL}/uat/report/${encodeURIComponent(fileName)}?vt=${encodeURIComponent(viewToken)}&downloadName=${encodeURIComponent(preferredName)}`;
+      window.open(reportUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening latest UAT form:', error);
+      alert(`Failed to open UAT form: ${error.message}`);
+    } finally {
+      setViewingAssetId('');
+    }
+  };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{
+        borderRadius: 14,
+        background: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
+        color: '#fff',
+        padding: '22px 24px',
+        marginBottom: 18,
+        boxShadow: '0 8px 22px rgba(0,0,0,0.15)'
+      }}>
+        <h1 style={{ margin: 0, fontSize: '1.7rem', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ClipboardCheck size={28} /> User Acceptance Test (UAT)
+        </h1>
+        <p style={{ margin: '6px 0 0 0', opacity: 0.92 }}>
+          Select an asset, tick all required conditions, collect recipient signature, then generate the UAT PDF.
+        </p>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>1. Select Client</label>
+            <select
+              value={selectedCustomer}
+              onChange={(event) => setSelectedCustomer(event.target.value)}
+              style={inputStyle}
+              disabled={loadingAssets}
+            >
+              <option value="">{loadingAssets ? 'Loading clients...' : 'Choose client'}</option>
+              {customerOptions.map((customer) => (
+                <option key={customer} value={customer}>{customer}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>2. Select Branch</label>
+            <select
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+              style={inputStyle}
+              disabled={loadingAssets || !selectedCustomer}
+            >
+              <option value="">{selectedCustomer ? 'Choose branch' : 'Select client first'}</option>
+              {branchOptions.map((branch) => (
+                <option key={branch} value={branch}>{branch}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {selectedCustomer && selectedBranch && (
+          <>
+            <div style={{ marginTop: 16 }}>
+              <label style={labelStyle}>3. Select Asset Type</label>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: 10
+              }}>
+                {assetTypeCards.map((typeCard) => {
+                  const isActive = selectedAssetType === typeCard.key;
+                  return (
+                    <button
+                      type="button"
+                      key={typeCard.key}
+                      onClick={() => setSelectedAssetType(typeCard.key)}
+                      style={{
+                        border: `1px solid ${isActive ? '#2563eb' : '#d1d5db'}`,
+                        background: isActive ? '#dbeafe' : '#fff',
+                        color: '#111827',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        opacity: typeCard.count === 0 ? 0.7 : 1
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{typeCard.key}</div>
+                      <div style={{ fontSize: 12, color: '#4b5563', marginTop: 3 }}>{typeCard.count} asset(s)</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {selectedAssetType && (
+              <div style={{ marginTop: 16 }}>
+                <label style={labelStyle}>4. Search Asset</label>
+                <div style={{ position: 'relative' }}>
+                  <Search size={16} style={{ position: 'absolute', left: 10, top: 11, color: '#6b7280' }} />
+                  <input
+                    value={assetSearch}
+                    onChange={(event) => setAssetSearch(event.target.value)}
+                    placeholder="Search by serial, tag, item, model or recipient name"
+                    style={{ ...inputStyle, paddingLeft: 34 }}
+                  />
+                </div>
+
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ color: '#4b5563', fontSize: 13 }}>
+                    {loadingHistory ? 'Loading UAT tracking data...' : `${tableAssets.length} asset(s) shown`}
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#1f2937', fontSize: 13, fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={showOnlyWithUAT}
+                      onChange={(event) => setShowOnlyWithUAT(event.target.checked)}
+                    />
+                    Only with UAT
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: '1px solid #d1d5db',
+                    borderRadius: 10,
+                    maxHeight: 320,
+                    overflowY: 'auto',
+                    background: '#fff'
+                  }}
+                >
+                  {tableAssets.length === 0 ? (
+                    <div style={{ padding: '12px 14px', color: '#6b7280' }}>
+                      No assets found for this filter.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', minWidth: 980, borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: 'linear-gradient(90deg, #1e3a8a, #4f46e5)', color: '#fff' }}>
+                          <th style={tableHeaderStyle}>#</th>
+                          <th style={tableHeaderStyle}>Tag ID</th>
+                          <th style={tableHeaderStyle}>Item Name</th>
+                          <th style={tableHeaderStyle}>Serial Number</th>
+                          <th style={tableHeaderStyle}>Recipient</th>
+                          <th style={tableHeaderStyle}>Latest UAT Date</th>
+                          <th style={{ ...tableHeaderStyle, textAlign: 'center' }}>Action</th>
+                          <th style={{ ...tableHeaderStyle, textAlign: 'center' }}>View UAT</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableAssets.map((asset, index) => {
+                          const isActive = String(selectedAssetId) === String(asset.Asset_ID);
+                          return (
+                            <tr key={asset.Asset_ID} style={{ background: isActive ? '#dbeafe' : '#fff' }}>
+                              <td style={tableCellStyle}>{index + 1}</td>
+                              <td style={tableCellStyle}>{asset.Asset_Tag_ID || '-'}</td>
+                              <td style={{ ...tableCellStyle, fontWeight: 600 }}>{asset.Item_Name || '-'}</td>
+                              <td style={tableCellStyle}>{asset.Asset_Serial_Number || '-'}</td>
+                              <td style={tableCellStyle}>{asset.Recipient_Name || asset.latestRecipientName || '-'}</td>
+                              <td style={tableCellStyle}>{formatHistoryDate(asset.latestUatDate)}</td>
+                              <td style={{ ...tableCellStyle, textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAssetId(String(asset.Asset_ID))}
+                                  style={{
+                                    border: `1px solid ${isActive ? '#16a34a' : '#93c5fd'}`,
+                                    background: isActive ? '#dcfce7' : '#eff6ff',
+                                    color: isActive ? '#166534' : '#1d4ed8',
+                                    borderRadius: 8,
+                                    padding: '6px 10px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {isActive ? 'Selected' : 'Choose'}
+                                </button>
+                              </td>
+                              <td style={{ ...tableCellStyle, textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewLatestUat(asset)}
+                                  disabled={!asset.latestFileName || viewingAssetId === String(asset.Asset_ID)}
+                                  style={{
+                                    border: '1px solid #cbd5e1',
+                                    background: asset.latestFileName ? '#f8fafc' : '#f3f4f6',
+                                    color: asset.latestFileName ? '#1f2937' : '#9ca3af',
+                                    borderRadius: 8,
+                                    padding: '6px 10px',
+                                    fontWeight: 700,
+                                    cursor: asset.latestFileName ? 'pointer' : 'not-allowed',
+                                    opacity: viewingAssetId === String(asset.Asset_ID) ? 0.7 : 1
+                                  }}
+                                  title={asset.latestFileName ? 'Open latest generated UAT form' : 'No UAT form available yet'}
+                                >
+                                  {viewingAssetId === String(asset.Asset_ID) ? 'Opening...' : 'View'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {selectedAsset && (
+          <>
+            <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Name</label>
+                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Department</label>
+                <input value={recipientDepartment} onChange={(event) => setRecipientDepartment(event.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Contact Number</label>
+                <input value={recipientContact} onChange={(event) => setRecipientContact(event.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Contract No</label>
+                <input value={contractNo} onChange={(event) => setContractNo(event.target.value)} style={inputStyle} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16, padding: 12, border: '1px solid #d1d5db', borderRadius: 10, background: '#f9fafb' }}>
+              <strong>Hardware:</strong> {selectedAsset.Item_Name} ({selectedAsset.Model})<br />
+              <strong>Asset Tag:</strong> {selectedAsset.Asset_Tag_ID || '-'}<br />
+              <strong>Serial Number:</strong> {selectedAsset.Asset_Serial_Number || '-'}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <h3 style={{ margin: 0, color: '#111827' }}>Verification Activity</h3>
+                <span style={{ color: '#1d4ed8', fontWeight: 600 }}>{checkedCount}/{totalChecklistItems} checked</span>
+              </div>
+
+              {checklistTemplate.map((section, sectionIndex) => (
+                <div key={section.title} style={{ border: '1px solid #d1d5db', borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
+                  <div style={{ background: '#eef2ff', padding: '10px 12px', color: '#1f2937', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontWeight: 700 }}>{section.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allCheckedInSection = isSectionFullyChecked(sectionIndex, section.items.length);
+                        setSectionCheckedState(sectionIndex, section.items.length, !allCheckedInSection);
+                      }}
+                      style={{
+                        border: '1px solid #93c5fd',
+                        background: '#fff',
+                        color: '#1d4ed8',
+                        borderRadius: 999,
+                        padding: '5px 10px',
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {isSectionFullyChecked(sectionIndex, section.items.length) ? 'Uncheck All' : 'Check All'}
+                    </button>
+                  </div>
+                  {section.items.map((item, itemIndex) => {
+                    const key = `${sectionIndex}-${itemIndex}`;
+                    const isChecked = Boolean(results[key]);
+                    return (
+                      <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 180px', gap: 10, alignItems: 'center', padding: '9px 12px', borderTop: '1px solid #e5e7eb' }}>
+                        <span style={{ color: '#111827' }}>{item}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleResult(sectionIndex, itemIndex)}
+                          style={{
+                            border: '1px solid',
+                            borderColor: isChecked ? '#16a34a' : '#9ca3af',
+                            background: isChecked ? '#dcfce7' : '#fff',
+                            color: isChecked ? '#166534' : '#374151',
+                            borderRadius: 999,
+                            padding: '6px 8px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isChecked ? 'Checked /' : 'Mark Check'}
+                        </button>
+                        <input
+                          placeholder="Remarks (optional)"
+                          value={remarks[key] || ''}
+                          onChange={(event) => setRemarks((previous) => ({ ...previous, [key]: event.target.value }))}
+                          style={inputStyle}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+              <button
+                type="button"
+                style={{
+                  ...primaryButtonStyle,
+                  opacity: canOpenSignature ? 1 : 0.55,
+                  cursor: canOpenSignature ? 'pointer' : 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+                disabled={!canOpenSignature}
+                onClick={() => setShowSignature(true)}
+                title={!allChecked ? 'Please check all conditions before submitting' : ''}
+              >
+                <PenTool size={16} /> Sign & Generate UAT Form
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <SignatureDialog
+        isOpen={showSignature}
+        onClose={() => setShowSignature(false)}
+        onConfirm={handleGenerate}
+        loading={submitting}
+      />
+
+      <SuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={() => setShowSuccessDialog(false)}
+        message={successDialogMessage}
+      />
+
+      {!selectedAsset && (
+        <div style={{ ...cardStyle, marginTop: 12, textAlign: 'center', color: '#6b7280' }}>
+          <CheckCircle2 size={22} style={{ marginBottom: 6 }} />
+          {!selectedCustomer
+            ? 'Select a client to start UAT.'
+            : !selectedBranch
+              ? 'Select a branch to continue.'
+              : !selectedAssetType
+                ? 'Select an asset type to load the asset list.'
+                : 'Select one asset to start the UAT checklist.'}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const cardStyle = {
+  background: '#fff',
+  border: '1px solid #e5e7eb',
+  borderRadius: 14,
+  padding: 16,
+  boxShadow: '0 6px 16px rgba(0, 0, 0, 0.06)'
+};
+
+const inputStyle = {
+  width: '100%',
+  height: 38,
+  borderRadius: 8,
+  border: '1px solid #cbd5e1',
+  padding: '0 10px',
+  fontSize: 14
+};
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: 6,
+  color: '#374151',
+  fontWeight: 600,
+  fontSize: 13
+};
+
+const tableHeaderStyle = {
+  padding: '10px 12px',
+  textAlign: 'left',
+  fontSize: 13,
+  whiteSpace: 'nowrap'
+};
+
+const tableCellStyle = {
+  padding: '9px 12px',
+  borderTop: '1px solid #e5e7eb',
+  color: '#111827',
+  fontSize: 13,
+  whiteSpace: 'nowrap'
+};
+
+const primaryButtonStyle = {
+  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 10,
+  padding: '10px 16px',
+  fontWeight: 700
+};
+
+const secondaryButtonStyle = {
+  background: '#fff',
+  color: '#1f2937',
+  border: '1px solid #cbd5e1',
+  borderRadius: 10,
+  padding: '10px 16px',
+  fontWeight: 600
+};
+
+const closeButtonStyle = {
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  color: '#6b7280'
+};
+
+const overlayStyle = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: 'rgba(15, 23, 42, 0.55)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 2000,
+  padding: 20
+};
+
+const dialogStyle = {
+  background: '#fff',
+  borderRadius: 14,
+  padding: 18,
+  width: 'min(680px, 100%)',
+  boxShadow: '0 15px 35px rgba(0,0,0,0.25)'
+};
+
+export default UAT;

@@ -298,8 +298,8 @@ const PMDetail = () => {
       const token = localStorage.getItem('authToken');
       // Support both legacy string and structured payload
       const signatureBase64 = typeof payload === 'string' ? payload : payload.signature;
-      const bagiPihak = (typeof payload === 'object' && payload.onBehalf && payload.name && payload.department)
-        ? `${payload.name}\\${payload.department}`
+      const bagiPihak = (typeof payload === 'object' && payload.onBehalf && payload.name)
+        ? `${payload.name}\\${payload.department || '-'}`
         : undefined;
       const response = await fetch(`${API_URL}/pm/${pmId}/signature`, {
         method: 'POST',
@@ -321,7 +321,9 @@ const PMDetail = () => {
       
       setSignatureMessage({
         type: 'success',
-        text: 'Signature saved successfully! Status updated to Completed.'
+        text: typeof payload === 'object' && payload?.fromFullName
+          ? 'Recipient full name signature saved successfully! Status updated to Completed.'
+          : 'Signature saved successfully! Status updated to Completed.'
       });
       
       // Close modal
@@ -632,6 +634,38 @@ const PMDetail = () => {
             }}>
               {pmData.Status || 'In-Process'}
             </div>
+
+            {pmData && !pmData.signature_path && pmData.Status !== 'Marked as Completed' && (
+              <button
+                onClick={handleOpenSignatureModal}
+                style={{
+                  padding: '10px 18px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  color: 'white',
+                  border: '2px solid rgba(255, 255, 255, 0.5)',
+                  borderRadius: '8px',
+                  fontSize: '0.95rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+                title="Recipient can sign digitally or by typing full name"
+              >
+                <PenTool size={16} />
+                Recipient Sign
+              </button>
+            )}
             
             {/* Download Form Button */}
             <PMReportDownload 

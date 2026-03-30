@@ -7,6 +7,7 @@ import toast from '../utils/toast';
 
 const AccountSettings = () => {
   usePageTitle('Account Settings');
+  const BASE_URL = API_URL.replace('/api/v1', '');
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -50,6 +51,13 @@ const AccountSettings = () => {
   const [newUserSignature, setNewUserSignature] = useState('');
   const [hasNewUserSignature, setHasNewUserSignature] = useState(false);
 
+  // Current user signature capture state (Profile tab)
+  const profileSigCanvasRef = useRef(null);
+  const [isDrawingProfileSig, setIsDrawingProfileSig] = useState(false);
+  const [profileSignature, setProfileSignature] = useState('');
+  const [hasProfileSignature, setHasProfileSignature] = useState(false);
+  const [savingProfileSignature, setSavingProfileSignature] = useState(false);
+
   // Project Customer role states
   const [customerList, setCustomerList] = useState([]);
   const [selectedProjectName, setSelectedProjectName] = useState('');
@@ -61,7 +69,8 @@ const AccountSettings = () => {
     email: '',
     username: '',
     department: '',
-    role: ''
+    role: '',
+    signPath: ''
   });
 
   const [securityData, setSecurityData] = useState({
@@ -123,6 +132,23 @@ const AccountSettings = () => {
     }
   }, [showAddUserModal]);
 
+  useEffect(() => {
+    if (activeTab !== 'profile' || !profileSigCanvasRef.current) return;
+
+    const canvas = profileSigCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    canvas.width = 600;
+    canvas.height = 180;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    setHasProfileSignature(false);
+    setProfileSignature('');
+  }, [activeTab]);
+
   const fetchUserProfile = async () => {
     try {
       const token = localStorage.getItem('authToken');
@@ -141,7 +167,8 @@ const AccountSettings = () => {
           email: data.data.email || '',
           username: data.data.username || '',
           department: data.data.department || '',
-          role: data.data.role || ''
+          role: data.data.role || '',
+          signPath: data.data.signPath || ''
         };
         console.log('✅ Setting profile data:', profileInfo);
         setProfileData(profileInfo);
@@ -424,6 +451,104 @@ const AccountSettings = () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasNewUserSignature(false);
     setNewUserSignature('');
+  };
+
+  const getPointFromEvent = (canvas, e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDrawingProfileSignature = (e) => {
+    e.preventDefault();
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const { x, y } = getPointFromEvent(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawingProfileSig(true);
+    setHasProfileSignature(true);
+  };
+
+  const drawProfileSignature = (e) => {
+    if (!isDrawingProfileSig) return;
+    e.preventDefault();
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const { x, y } = getPointFromEvent(canvas, e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawingProfileSignature = () => {
+    if (isDrawingProfileSig && profileSigCanvasRef.current) {
+      setProfileSignature(profileSigCanvasRef.current.toDataURL('image/png'));
+    }
+    setIsDrawingProfileSig(false);
+  };
+
+  const clearProfileSignature = () => {
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasProfileSignature(false);
+    setProfileSignature('');
+  };
+
+  const handleSaveProfileSignature = async () => {
+    if (!hasProfileSignature || !profileSignature) {
+      setUpdateMessage({ type: 'error', text: 'Please draw your signature first.' });
+      return;
+    }
+
+    try {
+      setSavingProfileSignature(true);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          signature: profileSignature
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to save signature');
+      }
+
+      setProfileData((prev) => ({
+        ...prev,
+        signPath: data.data?.signPath || prev.signPath
+      }));
+
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      localStorage.setItem('userInfo', JSON.stringify({ ...userInfo, ...(data.data || {}) }));
+
+      setUpdateMessage({ type: 'success', text: 'Staff signature saved. PM and UAT forms will use it automatically.' });
+      setHasProfileSignature(false);
+      setProfileSignature('');
+    } catch (error) {
+      setUpdateMessage({ type: 'error', text: error.message || 'Failed to save signature.' });
+    } finally {
+      setSavingProfileSignature(false);
+    }
   };
 
   const handleEditUser = (user) => {
@@ -716,6 +841,65 @@ const AccountSettings = () => {
                       onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
                       placeholder="Enter department (optional)"
                     />
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '18px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <PenTool size={16} /> Staff Signature (for PM/UAT auto-submit)
+                    </label>
+
+                    {profileData.signPath && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>Current saved signature</div>
+                        <img
+                          src={`${BASE_URL}/${profileData.signPath}`}
+                          alt="Current staff signature"
+                          style={{ border: '1px solid #d1d5db', borderRadius: '8px', background: '#fff', padding: '6px', maxHeight: '72px' }}
+                        />
+                      </div>
+                    )}
+
+                    <canvas
+                      ref={profileSigCanvasRef}
+                      style={{
+                        width: '100%',
+                        maxWidth: '600px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        background: '#fff',
+                        touchAction: 'none'
+                      }}
+                      onMouseDown={startDrawingProfileSignature}
+                      onMouseMove={drawProfileSignature}
+                      onMouseUp={stopDrawingProfileSignature}
+                      onMouseLeave={stopDrawingProfileSignature}
+                      onTouchStart={startDrawingProfileSignature}
+                      onTouchMove={drawProfileSignature}
+                      onTouchEnd={stopDrawingProfileSignature}
+                    />
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={clearProfileSignature}
+                        style={{ border: '1px solid #cbd5e1', background: '#fff', color: '#1f2937' }}
+                      >
+                        Clear Signature
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleSaveProfileSignature}
+                        disabled={!hasProfileSignature || savingProfileSignature}
+                        style={{ opacity: (!hasProfileSignature || savingProfileSignature) ? 0.6 : 1 }}
+                      >
+                        {savingProfileSignature ? 'Saving Signature...' : 'Save Staff Signature'}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                      Recipient signatures are still captured per form. Staff signature is auto-applied from this profile setting.
+                    </div>
                   </div>
 
                   <button type="submit" className="btn btn-primary">

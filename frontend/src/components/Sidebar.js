@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   FolderOpen, 
   Package, 
+  ClipboardCheck,
   Wrench, 
   Settings,
   Activity,
@@ -138,6 +139,7 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/projects', icon: FolderOpen, label: 'Projects' },
     { path: '/assets', icon: Package, label: 'Assets' },
+    { path: '/uat', icon: ClipboardCheck, label: 'UAT' },
     { path: '/maintenance', icon: Wrench, label: 'Preventive Maintenance' },
     { path: '/solution-principal', icon: Users, label: 'Solution Principal' },
     { path: '/audit-log', icon: Activity, label: 'Audit Log' },
@@ -154,7 +156,7 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
   // Filter nav items based on role
   const filteredNavItems = isCustomerRole() 
     ? navItems.filter(item => 
-        ['/projects', '/assets', '/maintenance', '/settings'].includes(item.path)
+        ['/projects', '/assets', '/uat', '/maintenance', '/settings'].includes(item.path)
       )
     : navItems;
 

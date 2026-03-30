@@ -135,7 +135,11 @@ const updateProfileValidationRules = [
   body('department')
     .optional()
     .isLength({ max: 100 })
-    .withMessage('Department must be less than 100 characters')
+    .withMessage('Department must be less than 100 characters'),
+  body('signature')
+    .optional()
+    .custom((value) => typeof value === 'string' && value.startsWith('data:image/png;base64,'))
+    .withMessage('Signature must be a Base64 PNG data URL')
 ];
 
 const changePasswordValidationRules = [
