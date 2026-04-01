@@ -80,6 +80,67 @@ const PROJECTOR_CHECKLIST = [
   }
 ];
 
+const DEFAULT_PERIPHERAL_OPTIONS = [
+  'Antivirus',
+  'Router',
+  'Mouse',
+  'Keyboard',
+  'Printer USB Wire'
+];
+
+const normalizePeripheralName = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const buildPeripheralSelectionsFromAsset = (asset = {}) => {
+  const baseSelections = DEFAULT_PERIPHERAL_OPTIONS.map((name) => ({
+    name,
+    checked: false,
+    serial: '',
+    isCustom: false
+  }));
+
+  const peripheralNames = String(
+    asset.Peripheral_Type || asset.Peripherals || asset.Accessories || ''
+  )
+    .split(/[,;\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  const peripheralSerials = String(asset.Peripheral_Serial || '')
+    .split(/[,;\n]/)
+    .map((entry) => entry.trim());
+
+  peripheralNames.forEach((name, index) => {
+    const normalizedIncoming = normalizePeripheralName(name);
+    const matchingIndex = baseSelections.findIndex(
+      (entry) => normalizePeripheralName(entry.name) === normalizedIncoming
+    );
+
+    const serial = peripheralSerials[index] || '';
+
+    if (matchingIndex >= 0) {
+      baseSelections[matchingIndex] = {
+        ...baseSelections[matchingIndex],
+        checked: true,
+        serial
+      };
+      return;
+    }
+
+    baseSelections.push({
+      name,
+      checked: true,
+      serial,
+      isCustom: true
+    });
+  });
+
+  return baseSelections;
+};
+
 const getChecklistByCategory = (asset = {}) => {
   const category = String(asset.Category || '').toLowerCase();
   const itemName = String(asset.Item_Name || '').toLowerCase();
@@ -381,12 +442,17 @@ const UAT = () => {
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [uatHistoryByAssetId, setUatHistoryByAssetId] = useState({});
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [globalUatHistoryByAssetId, setGlobalUatHistoryByAssetId] = useState({});
+  const [loadingGlobalHistory, setLoadingGlobalHistory] = useState(false);
   const [showOnlyWithUAT, setShowOnlyWithUAT] = useState(false);
+  const [bulkAssetType, setBulkAssetType] = useState('');
+  const [bulkDownloading, setBulkDownloading] = useState('');
 
   const [recipientName, setRecipientName] = useState('');
   const [recipientDepartment, setRecipientDepartment] = useState('');
   const [recipientContact, setRecipientContact] = useState('');
   const [contractNo, setContractNo] = useState('CT240000000025913');
+  const [peripheralSelections, setPeripheralSelections] = useState([]);
 
   const [results, setResults] = useState({});
   const [remarks, setRemarks] = useState({});
@@ -517,6 +583,23 @@ const UAT = () => {
     });
   }, [filteredAssets, showOnlyWithUAT, uatHistoryByAssetId]);
 
+  const doneAssetTypesForSelectedCustomer = useMemo(() => {
+    if (!selectedCustomer) return [];
+
+    const typeCounts = assets
+      .filter((asset) => String(asset.Customer_Name || '') === String(selectedCustomer))
+      .filter((asset) => Boolean(globalUatHistoryByAssetId[String(asset.Asset_ID)]?.count > 0))
+      .reduce((acc, asset) => {
+        const typeKey = getAssetTypeKey(asset);
+        acc[typeKey] = (acc[typeKey] || 0) + 1;
+        return acc;
+      }, {});
+
+    return Object.entries(typeCounts)
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => a.type.localeCompare(b.type));
+  }, [assets, selectedCustomer, globalUatHistoryByAssetId]);
+
   useEffect(() => {
     const fetchUatHistory = async () => {
       if (!selectedCustomer || !selectedBranch || !selectedAssetType) {
@@ -562,10 +645,83 @@ const UAT = () => {
   }, [selectedCustomer, selectedBranch, selectedAssetType]);
 
   useEffect(() => {
+    const fetchGlobalUatHistory = async () => {
+      setLoadingGlobalHistory(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/uat/history-summary`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch global UAT history (${response.status})`);
+        }
+
+        const payload = await response.json();
+        const nextMap = {};
+        (Array.isArray(payload.data) ? payload.data : []).forEach((entry) => {
+          if (!entry?.assetId) return;
+          nextMap[String(entry.assetId)] = entry;
+        });
+        setGlobalUatHistoryByAssetId(nextMap);
+      } catch (error) {
+        console.error('Error fetching global UAT history summary:', error);
+        setGlobalUatHistoryByAssetId({});
+      } finally {
+        setLoadingGlobalHistory(false);
+      }
+    };
+
+    fetchGlobalUatHistory();
+  }, []);
+
+  const pendingByCustomer = useMemo(() => {
+    const summary = new Map();
+
+    assets.forEach((asset) => {
+      const customerName = String(asset.Customer_Name || 'Unknown Customer').trim() || 'Unknown Customer';
+      const assetId = String(asset.Asset_ID || '').trim();
+      const hasSubmitted = Boolean(globalUatHistoryByAssetId[assetId]?.count > 0);
+
+      if (!summary.has(customerName)) {
+        summary.set(customerName, {
+          customerName,
+          totalAssets: 0,
+          submittedAssets: 0,
+          pendingAssets: 0
+        });
+      }
+
+      const customerSummary = summary.get(customerName);
+      customerSummary.totalAssets += 1;
+      if (hasSubmitted) {
+        customerSummary.submittedAssets += 1;
+      } else {
+        customerSummary.pendingAssets += 1;
+      }
+    });
+
+    return Array.from(summary.values())
+      .filter((item) => item.pendingAssets > 0)
+      .sort((a, b) => {
+        if (b.pendingAssets !== a.pendingAssets) return b.pendingAssets - a.pendingAssets;
+        return a.customerName.localeCompare(b.customerName);
+      });
+  }, [assets, globalUatHistoryByAssetId]);
+
+  const totalPendingAssets = useMemo(
+    () => pendingByCustomer.reduce((sum, item) => sum + item.pendingAssets, 0),
+    [pendingByCustomer]
+  );
+
+  useEffect(() => {
     setSelectedBranch('');
     setSelectedAssetType('');
     setAssetSearch('');
     setSelectedAssetId('');
+    setBulkAssetType('');
   }, [selectedCustomer]);
 
   useEffect(() => {
@@ -592,6 +748,7 @@ const UAT = () => {
       setRecipientName('');
       setRecipientDepartment('');
       setRecipientContact('');
+      setPeripheralSelections([]);
       setResults({});
       setRemarks({});
       return;
@@ -600,9 +757,57 @@ const UAT = () => {
     setRecipientName(selectedAsset.Recipient_Name || '');
     setRecipientDepartment(selectedAsset.Department || '');
     setRecipientContact(selectedAsset.Contact_Number || selectedAsset.Contact_Number1 || '');
+    setPeripheralSelections(buildPeripheralSelectionsFromAsset(selectedAsset));
     setResults(buildInitialResults(checklistTemplate));
     setRemarks({});
   }, [selectedAsset, checklistTemplate]);
+
+  const selectedPeripheralItems = useMemo(
+    () => peripheralSelections
+      .map((entry) => ({
+        name: String(entry.name || '').trim(),
+        serial: String(entry.serial || '').trim(),
+        checked: Boolean(entry.checked)
+      }))
+      .filter((entry) => entry.name && (entry.checked || entry.serial)),
+    [peripheralSelections]
+  );
+
+  const togglePeripheralChecked = (index) => {
+    setPeripheralSelections((previous) => previous.map((entry, entryIndex) => (
+      entryIndex === index
+        ? { ...entry, checked: !entry.checked }
+        : entry
+    )));
+  };
+
+  const updatePeripheralSerial = (index, value) => {
+    setPeripheralSelections((previous) => previous.map((entry, entryIndex) => (
+      entryIndex === index
+        ? { ...entry, serial: value }
+        : entry
+    )));
+  };
+
+  const updatePeripheralName = (index, value) => {
+    setPeripheralSelections((previous) => previous.map((entry, entryIndex) => (
+      entryIndex === index
+        ? { ...entry, name: value }
+        : entry
+    )));
+  };
+
+  const addCustomPeripheralOption = () => {
+    setPeripheralSelections((previous) => ([
+      ...previous,
+      {
+        name: '',
+        checked: true,
+        serial: '',
+        isCustom: true
+      }
+    ]));
+  };
 
   const totalChecklistItems = useMemo(
     () => checklistTemplate.reduce((total, section) => total + section.items.length, 0),
@@ -679,7 +884,12 @@ const UAT = () => {
         Category: selectedAsset.Category,
         Branch: selectedAsset.Branch,
         Customer_Name: selectedAsset.Customer_Name,
-        accessories: selectedAsset.Peripherals || selectedAsset.Accessories || '-'
+        accessories: selectedPeripheralItems.map((item) => item.name).join(', ') || '-',
+        peripheralAssets: selectedPeripheralItems.map((item) => item.name).join(', ') || '-',
+        peripheralSerialNumber: selectedPeripheralItems
+          .map((item) => `${item.name}: ${item.serial || '-'}`)
+          .join('; ') || '-',
+        peripheralItems: selectedPeripheralItems
       },
       checklistSections,
       signature: signatureBase64,
@@ -766,6 +976,68 @@ const UAT = () => {
     }
   };
 
+  const handleBulkDownload = async (mode) => {
+    const isTypeMode = mode === 'type' || mode === 'asset-type';
+
+    if (!selectedCustomer) {
+      alert('Please select a customer first.');
+      return;
+    }
+
+    if (isTypeMode && !bulkAssetType) {
+      alert('Please select an asset type for type-level bulk download.');
+      return;
+    }
+
+    setBulkDownloading(mode);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/uat/bulk-download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          mode,
+          customerName: selectedCustomer,
+          assetType: isTypeMode ? bulkAssetType : undefined
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || `Failed (${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const safeCustomer = String(selectedCustomer).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeType = String(bulkAssetType || 'TYPE').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fallbackName = isTypeMode
+        ? `UAT_BULK_${safeCustomer}_${safeType}_${datePart}.zip`
+        : `UAT_BULK_${safeCustomer}_${datePart}.zip`;
+
+      const contentDisposition = response.headers.get('Content-Disposition') || '';
+      const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+      const fileName = fileNameMatch?.[1] || fallbackName;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading bulk UAT forms:', error);
+      alert(`Failed to download bulk UAT forms: ${error.message}`);
+    } finally {
+      setBulkDownloading('');
+    }
+  };
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{
@@ -782,9 +1054,114 @@ const UAT = () => {
         <p style={{ margin: '6px 0 0 0', opacity: 0.92 }}>
           Select an asset, tick all required conditions, collect recipient signature, then generate the UAT PDF.
         </p>
+
+        <div
+          style={{
+            marginTop: 14,
+            border: '1px solid rgba(191, 219, 254, 0.45)',
+            background: 'rgba(15, 23, 42, 0.35)',
+            borderRadius: 12,
+            padding: '10px 12px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 14 }}>Pending UAT by Customer</strong>
+            <span style={{ fontSize: 12, opacity: 0.95 }}>
+              {loadingGlobalHistory || loadingAssets
+                ? 'Calculating...'
+                : `${totalPendingAssets} pending asset(s)`}
+            </span>
+          </div>
+
+          {loadingGlobalHistory || loadingAssets ? (
+            <div style={{ fontSize: 13, opacity: 0.9 }}>Loading UAT pending summary...</div>
+          ) : pendingByCustomer.length === 0 ? (
+            <div style={{ fontSize: 13, opacity: 0.95 }}>All assets already have UAT forms submitted.</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {pendingByCustomer.map((item) => (
+                <div
+                  key={item.customerName}
+                  style={{
+                    border: '1px solid rgba(147, 197, 253, 0.6)',
+                    background: 'rgba(30, 41, 59, 0.55)',
+                    borderRadius: 999,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    color: '#e0edff'
+                  }}
+                >
+                  <strong>{item.customerName}</strong>: {item.pendingAssets} pending
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={cardStyle}>
+        <div style={{
+          border: '1px solid #cbd5e1',
+          borderRadius: 10,
+          padding: 12,
+          background: '#f8fafc',
+          marginBottom: 14
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#0f172a', fontSize: '1rem' }}>Bulk UAT Form Download</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => handleBulkDownload('customer')}
+              disabled={!selectedCustomer || bulkDownloading !== ''}
+              style={{
+                ...secondaryButtonStyle,
+                borderColor: '#93c5fd',
+                color: '#1d4ed8',
+                opacity: !selectedCustomer || bulkDownloading !== '' ? 0.6 : 1,
+                cursor: !selectedCustomer || bulkDownloading !== '' ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {bulkDownloading === 'customer'
+                ? 'Preparing ZIP...'
+                : 'Download All UAT Done (Selected Customer)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleBulkDownload('asset-type')}
+              disabled={!selectedCustomer || !bulkAssetType || bulkDownloading !== ''}
+              style={{
+                ...secondaryButtonStyle,
+                borderColor: '#93c5fd',
+                color: '#1d4ed8',
+                opacity: !selectedCustomer || !bulkAssetType || bulkDownloading !== '' ? 0.6 : 1,
+                cursor: !selectedCustomer || !bulkAssetType || bulkDownloading !== '' ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {bulkDownloading === 'asset-type'
+                ? 'Preparing ZIP...'
+                : 'Download All UAT Done (Selected Asset Type)'}
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <label style={labelStyle}>Asset Type (under selected customer, with UAT done)</label>
+            <select
+              value={bulkAssetType}
+              onChange={(event) => setBulkAssetType(event.target.value)}
+              style={inputStyle}
+              disabled={!selectedCustomer || bulkDownloading !== ''}
+            >
+              <option value="">Choose asset type for option 2</option>
+              {doneAssetTypesForSelectedCustomer.map((item) => (
+                <option key={item.type} value={item.type}>
+                  {item.type} ({item.count} UAT done)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={labelStyle}>1. Select Client</label>
@@ -991,6 +1368,83 @@ const UAT = () => {
               <strong>Hardware:</strong> {selectedAsset.Item_Name} ({selectedAsset.Model})<br />
               <strong>Asset Tag:</strong> {selectedAsset.Asset_Tag_ID || '-'}<br />
               <strong>Serial Number:</strong> {selectedAsset.Asset_Serial_Number || '-'}
+            </div>
+
+            <div style={{ marginTop: 14, border: '1px solid #d1d5db', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ background: '#eff6ff', padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div>
+                  <strong style={{ color: '#1f2937' }}>Peripheral Assets</strong>
+                  <div style={{ color: '#4b5563', fontSize: 12, marginTop: 2 }}>
+                    Existing peripherals for this asset are auto-selected. You can adjust and add more before generating the form.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addCustomPeripheralOption}
+                  style={{
+                    border: '1px solid #93c5fd',
+                    background: '#fff',
+                    color: '#1d4ed8',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  + Add Other Peripheral
+                </button>
+              </div>
+
+              <div style={{ padding: 10, background: '#fff' }}>
+                {peripheralSelections.length === 0 ? (
+                  <div style={{ color: '#6b7280', fontSize: 13 }}>No peripheral options available.</div>
+                ) : (
+                  peripheralSelections.map((entry, index) => (
+                    <div
+                      key={`peripheral-${index}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '120px 1fr 1fr',
+                        gap: 10,
+                        alignItems: 'center',
+                        padding: '8px 0',
+                        borderTop: index === 0 ? 'none' : '1px solid #f1f5f9'
+                      }}
+                    >
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#111827', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(entry.checked)}
+                          onChange={() => togglePeripheralChecked(index)}
+                        />
+                        Select
+                      </label>
+
+                      {entry.isCustom ? (
+                        <input
+                          value={entry.name}
+                          onChange={(event) => updatePeripheralName(index, event.target.value)}
+                          placeholder="Peripheral name (e.g. HDMI Cable)"
+                          style={inputStyle}
+                        />
+                      ) : (
+                        <input
+                          value={entry.name}
+                          readOnly
+                          style={{ ...inputStyle, background: '#f8fafc', color: '#334155' }}
+                        />
+                      )}
+
+                      <input
+                        value={entry.serial}
+                        onChange={(event) => updatePeripheralSerial(index, event.target.value)}
+                        placeholder="Peripheral serial no. (optional)"
+                        style={inputStyle}
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
             <div style={{ marginTop: 18 }}>

@@ -275,6 +275,22 @@
     animation: expandContent 0.3s ease-out forwards;
 }
 
+.dashboard-chart-wrapper {
+    width: 100%;
+    min-height: 300px;
+}
+
+.dashboard-chart-wrapper .recharts-default-tooltip {
+    border-radius: 10px !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.dashboard-chart-wrapper .recharts-legend-item-text {
+    color: #334155 !important;
+    font-size: 12px;
+}
+
 .chart-bar-item {
     margin-bottom: 24px;
     animation: slideInUp 0.6s ease-out forwards;

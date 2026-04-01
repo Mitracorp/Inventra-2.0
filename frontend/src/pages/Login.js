@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { PublicClientApplication } from '@azure/msal-browser';
+import MitracorpLogo from '../assets/MitracorpLogo_full.png';
 
 const azureClientId = process.env.REACT_APP_AZURE_CLIENT_ID;
 const azureAuthority = process.env.REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common';
@@ -149,6 +150,9 @@ const Login = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-card">
+        <img src={MitracorpLogo} alt="Mitracorp logo" className="login-logo" />
+        <h1 className="login-brand-title">Inventra</h1>
+        <div className="login-title-divider" />
         <h2 className="login-title">Inventory Management System</h2>
         {error && (
           <div style={{
@@ -253,9 +257,19 @@ const Login = ({ onLogin }) => {
             padding: '10px 14px',
             borderRadius: '8px',
             fontWeight: 600,
-            cursor: msLoading ? 'not-allowed' : 'pointer'
+            cursor: msLoading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
           }}
         >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="7" height="7" fill="#F79C1D" />
+            <rect x="10" y="1" width="7" height="7" fill="#7FBA00" />
+            <rect x="1" y="10" width="7" height="7" fill="#00A4EF" />
+            <rect x="10" y="10" width="7" height="7" fill="#FFB900" />
+          </svg>
           {msLoading ? 'Connecting to Microsoft...' : 'Continue with Microsoft'}
         </button>
       </div>

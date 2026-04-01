@@ -111,7 +111,8 @@ class UATPdfGenerator {
       const category = String(entry.category || '').toLowerCase();
       const itemName = String(entry.itemName || '').toLowerCase();
       const model = String(entry.model || '').toLowerCase();
-      if (!category && !itemName && !model) return true;
+      // Strict mode for bulk type export: if we cannot classify the asset, exclude it.
+      if (!category && !itemName && !model) return false;
       const haystack = `${category} ${itemName} ${model}`;
 
       if (normalizedType === 'printer') {
@@ -230,6 +231,94 @@ class UATPdfGenerator {
     });
 
     return Array.from(byAsset.values());
+  }
+
+  async getBulkReportEntries(filters = {}) {
+    const entries = await this.loadRegistry();
+    const normalizedCustomer = String(filters.customerName || '').trim().toLowerCase();
+    const normalizedAssetId = String(filters.assetId || '').trim();
+    const normalizedType = String(filters.assetType || '').trim().toLowerCase();
+
+    const isMatchingType = (entry) => {
+      if (!normalizedType) return true;
+      const category = String(entry.category || '').toLowerCase();
+      const itemName = String(entry.itemName || '').toLowerCase();
+      const model = String(entry.model || '').toLowerCase();
+      if (!category && !itemName && !model) return true;
+      const haystack = `${category} ${itemName} ${model}`;
+
+      if (normalizedType === 'printer') {
+        return haystack.includes('printer') || haystack.includes('laserjet') || haystack.includes('mfp');
+      }
+
+      if (normalizedType === 'projector') {
+        return haystack.includes('projector') || haystack.includes('epson');
+      }
+
+      if (normalizedType === 'tablet') {
+        return haystack.includes('tablet') || haystack.includes('2 in 1') || haystack.includes('2in1') || haystack.includes('detachable');
+      }
+
+      if (normalizedType === 'notebook/laptop') {
+        return haystack.includes('laptop') || haystack.includes('notebook') || haystack.includes('riba');
+      }
+
+      if (normalizedType === 'server') {
+        return haystack.includes('server');
+      }
+
+      if (normalizedType === 'network') {
+        return haystack.includes('router') || haystack.includes('switch') || haystack.includes('network');
+      }
+
+      if (normalizedType === 'desktop/aio') {
+        return !(
+          haystack.includes('printer') ||
+          haystack.includes('laserjet') ||
+          haystack.includes('mfp') ||
+          haystack.includes('projector') ||
+          haystack.includes('epson') ||
+          haystack.includes('tablet') ||
+          haystack.includes('2 in 1') ||
+          haystack.includes('2in1') ||
+          haystack.includes('detachable') ||
+          haystack.includes('laptop') ||
+          haystack.includes('notebook') ||
+          haystack.includes('riba') ||
+          haystack.includes('server') ||
+          haystack.includes('router') ||
+          haystack.includes('switch') ||
+          haystack.includes('network')
+        );
+      }
+
+      return true;
+    };
+
+    return entries
+      .filter((entry) => {
+        if (normalizedCustomer) {
+          const entryCustomer = String(entry.customerName || '').trim().toLowerCase();
+          if (entryCustomer !== normalizedCustomer) {
+            return false;
+          }
+        }
+
+        if (normalizedAssetId && String(entry.assetId || '').trim() !== normalizedAssetId) {
+          return false;
+        }
+
+        if (!isMatchingType(entry)) {
+          return false;
+        }
+
+        return this.hasStoredReportFile(entry.fileName);
+      })
+      .map((entry) => ({
+        ...entry,
+        absolutePath: this.getStoredReportPath(entry.fileName)
+      }))
+      .filter((entry) => Boolean(entry.absolutePath));
   }
 
   getStoredReportPath(fileName) {
@@ -453,6 +542,8 @@ class UATPdfGenerator {
       hardwareTitle: payload.asset?.Item_Name || '-',
       model: payload.asset?.Model || '-',
       accessories: payload.asset?.accessories || '-',
+      peripheralAssets: payload.asset?.peripheralAssets || payload.asset?.accessories || '-',
+      peripheralSerialNumber: payload.asset?.peripheralSerialNumber || '-',
       assetTag: payload.asset?.Asset_Tag_ID || '-',
       serialNumber: payload.asset?.Asset_Serial_Number || '-',
       signedAt: this.formatDate(payload.signedAt),

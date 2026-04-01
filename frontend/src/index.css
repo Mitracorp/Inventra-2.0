@@ -563,13 +563,34 @@ body {
   width: 100%;
   max-width: 170px;
   height: auto;
-  margin: 0 auto 14px;
+  margin: 0 auto 10px;
   object-fit: contain;
+}
+
+.login-brand-title {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #eef5ff;
+  font-size: 1.25rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.login-title-divider {
+  height: 1px;
+  width: 100%;
+  margin: 0 auto 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(180, 204, 230, 0),
+    rgba(180, 204, 230, 0.7),
+    rgba(180, 204, 230, 0)
+  );
 }
 
 .login-title {
   text-align: center;
-  margin-bottom: 4px;
+  margin-bottom: 16px;
   color: #f2f7ff;
   font-size: 1.8rem;
 }

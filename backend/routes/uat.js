@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const archiver = require('archiver');
 const { authenticateToken } = require('../middleware/auth');
 const uatPdfGenerator = require('../utils/uatPdfGenerator');
 const User = require('../models/User');
@@ -15,6 +16,16 @@ const sanitizePdfName = (value) => {
   const withoutPath = base.split('/').pop().split('\\').pop();
   if (!withoutPath) return 'UAT_Report.pdf';
   return withoutPath.toLowerCase().endsWith('.pdf') ? withoutPath : `${withoutPath}.pdf`;
+};
+
+const sanitizeNamePart = (value, fallback) => {
+  const safe = String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return safe || fallback;
 };
 
 const verifyAccessForReport = (req) => {
@@ -51,6 +62,93 @@ router.get('/history-summary', authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to load UAT history summary',
+      message: error.message
+    });
+  }
+});
+
+router.post('/bulk-download', authenticateToken, async (req, res) => {
+  try {
+    const mode = String(req.body?.mode || 'customer').toLowerCase();
+    const customerName = String(req.body?.customerName || '').trim();
+    const assetId = String(req.body?.assetId || '').trim();
+    const assetType = String(req.body?.assetType || '').trim();
+
+    if (!customerName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Customer name is required for bulk UAT download'
+      });
+    }
+
+    if (mode === 'asset' && !assetId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Asset ID is required for asset-level bulk UAT download'
+      });
+    }
+
+    if ((mode === 'type' || mode === 'asset-type') && !assetType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Asset type is required for type-level bulk UAT download'
+      });
+    }
+
+    const entries = await uatPdfGenerator.getBulkReportEntries({
+      customerName,
+      assetId: mode === 'asset' ? assetId : '',
+      assetType: (mode === 'type' || mode === 'asset-type') ? assetType : ''
+    });
+
+    if (!entries.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'No generated UAT forms found for the selected criteria'
+      });
+    }
+
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const safeCustomer = sanitizeNamePart(customerName, 'CUSTOMER');
+    const safeAsset = sanitizeNamePart(assetId, 'ASSET');
+    const safeType = sanitizeNamePart(assetType, 'TYPE');
+    const zipName = mode === 'asset'
+      ? `UAT_BULK_${safeCustomer}_${safeAsset}_${datePart}.zip`
+      : (mode === 'type' || mode === 'asset-type')
+        ? `UAT_BULK_${safeCustomer}_${safeType}_${datePart}.zip`
+        : `UAT_BULK_${safeCustomer}_${datePart}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('error', (error) => {
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to build bulk UAT ZIP',
+          message: error.message
+        });
+      }
+    });
+
+    archive.pipe(res);
+
+    entries.forEach((entry, index) => {
+      const safeDocument = sanitizeNamePart(entry.documentId, `DOC_${index + 1}`);
+      const safeEntryAsset = sanitizeNamePart(entry.assetId, 'ASSET');
+      const generatedAt = entry.generatedAt ? new Date(entry.generatedAt).toISOString().slice(0, 10).replace(/-/g, '') : 'DATE';
+      const fileName = `UAT_${safeDocument}_ASSET_${safeEntryAsset}_${generatedAt}.pdf`;
+      archive.file(entry.absolutePath, { name: fileName });
+    });
+
+    await archive.finalize();
+    return undefined;
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to process bulk UAT download',
       message: error.message
     });
   }
