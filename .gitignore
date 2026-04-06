@@ -3,17 +3,18 @@ backend/uploads/signature-staff/**
 !backend/uploads/signature-staff/.gitkeep
 node_modules
 
-# Environment variables
+# Environment variables (real secrets – never commit these)
 .env.production
 backend/.env
-backend/.env.example
 backend/.env.production
 frontend/.env
 frontend/.env.production
 frontend/.env.development
+# backend/.env.example is intentionally NOT ignored – it is a safe template
 
-# Ignore backend runtime logs
-backend/logs/
+# Ignore backend runtime logs (keep .gitkeep so the dir is tracked)
+backend/logs/*
+!backend/logs/.gitkeep
 *.log
 
 # Ignore generated PM report PDFs (each user generates their own)

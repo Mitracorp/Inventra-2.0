@@ -407,97 +407,114 @@ Developer B:
 - Database: Local MySQL or remote MySQL server
 - PDF Storage: Local file system (`backend/uploads/pm-reports/`)
 
-### Production Deployment on cPanel
+### Production Deployment on cPanel (Git Version Control)
 
-#### Prerequisites:
-- cPanel account with Node.js support
-- MySQL database access
-- Domain name configured
+This repository ships with a `.cpanel.yml` file that automates backend dependency
+installation each time cPanel pulls a new commit.  Follow the one-time setup
+below and then every subsequent push to the `staging` branch will deploy cleanly.
 
-#### Quick Deployment Steps:
+#### Prerequisites
+- cPanel account with Node.js (Passenger) support
+- MySQL/MariaDB database provisioned in cPanel
+- SSH or Terminal access (for the first-time env setup)
+- Domain pointed to the cPanel account
 
-**1. Setup MySQL Database**
-- cPanel → MySQL Databases → Create database
-- Create user and assign to database (ALL PRIVILEGES)
-- Import schema: phpMyAdmin → Import `backend/config/setup.sql`
+---
 
-**2. Deploy Backend**
-- cPanel → Setup Node.js App → Create Application
-- Configure:
-  - Node.js version: 16.x or 18.x
-  - Application root: `inventra_backend`
-  - Startup file: `server.js`
-- Upload all backend files to application root
-- Create `.env` file:
-  ```env
-  NODE_ENV=production
-  PORT=3000
-  DB_HOST=localhost
-  DB_USER=your_db_user
-  DB_PASSWORD=your_db_password
-  DB_NAME=your_db_name
-  JWT_SECRET=your_secret_key
-  ```
-- Run NPM Install → Start App
+#### One-time server setup
 
-**3. Create Uploads Folder** ⭐
+**Step 1 – Create the MySQL database**
+1. cPanel → **MySQL Databases** → create a database, a user, and grant ALL PRIVILEGES.
+2. Note down: host (`localhost`), database name, username, password.
+3. Import the schema: **phpMyAdmin** → select the database → **Import** → `backend/config/setup.sql`.
+
+**Step 2 – Connect cPanel Git Version Control**
+1. cPanel → **Git™ Version Control** → **Create** (or **Manage** if already cloned).
+2. Set **Repository Path** to the directory where the app should live, e.g.  
+   `/home/ivms2006/public_html/inventra.ivms2006.com/app`
+3. Set **Clone URL** to `https://github.com/Mitracorp/Inventra-2.0`
+4. Set **Branch** to `staging`.
+5. Click **Create** – cPanel will clone the repo and run `.cpanel.yml` automatically.
+
+**Step 3 – Create the production `.env` file (SSH / Terminal)**
 ```bash
-# Via SSH:
-cd ~/inventra_backend
-mkdir -p uploads/pm-reports
-chmod 755 uploads uploads/pm-reports
+# Navigate to the deployed repo root on the server
+cd /home/ivms2006/public_html/inventra.ivms2006.com/app
 
-# Or via File Manager:
-# Create folders: uploads/pm-reports
-# Set permissions: 755
+# Copy the example template
+cp backend/.env.example backend/.env
+
+# Edit with your real values
+nano backend/.env
+```
+Fill in every `<REQUIRED>` field in `backend/.env` (DB credentials, JWT secret, etc.).
+See `backend/.env.example` for the full list of supported variables.
+
+> ⚠️ **Never commit `backend/.env`** – it is listed in `.gitignore` and must stay
+> on the server only.
+
+**Step 4 – Configure the Node.js application**
+1. cPanel → **Setup Node.js App** → **Create Application**.
+2. Settings:
+   | Field | Value |
+   |---|---|
+   | Node.js version | 18.x (or 20.x) |
+   | Application mode | **Production** |
+   | Application root | `/home/ivms2006/public_html/inventra.ivms2006.com/app/backend` |
+   | Application URL | `inventra.ivms2006.com` (or your domain) |
+   | Application startup file | `server.js` |
+3. Click **Create** then **Run NPM Install** → **Start App**.
+
+**Step 5 – Enable SSL**
+- cPanel → **SSL/TLS** → **AutoSSL** or **Let's Encrypt** for your domain.
+
+---
+
+#### How `.cpanel.yml` keeps deployments clean
+
+Every time you push to `staging` and click **Deploy HEAD Commit** in cPanel:
+
+1. cPanel fetches & checks out the new commit (fast-forward).
+2. cPanel runs the tasks in `.cpanel.yml`:
+   - Creates `backend/logs/` and `backend/uploads/` sub-directories if missing.
+   - Runs `npm install --production --no-package-lock` inside `backend/`.  
+     The `--no-package-lock` flag prevents npm from writing a new
+     `package-lock.json`, which would otherwise leave tracked files modified
+     and block the *next* deployment with "uncommitted changes exist".
+   - Fixes directory permissions.
+3. Passenger auto-restarts the Node.js process.
+
+> The pre-built React bundle (`frontend/build/`) is committed to the repo,
+> so no frontend build step is needed on the server.
+
+---
+
+#### Deploying a new version
+
+```bash
+# On your local machine – push to staging
+git push origin staging
 ```
 
-**4. Deploy Frontend**
-- Build locally: `cd frontend && npm run build`
-- Upload `build/` contents to `public_html/`
-- Create `.htaccess` for React Router:
-  ```apache
-  <IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /
-    RewriteRule ^index\.html$ - [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule . /index.html [L]
-  </IfModule>
-  ```
-- Update API URL in `apiService.js` before building
+Then in cPanel → **Git™ Version Control** → your repo → **Update** →
+**Deploy HEAD Commit**.
 
-**5. Setup SSL & Domain**
-- cPanel → SSL/TLS → Enable AutoSSL or Let's Encrypt
-- Configure domain to point to Node.js app
+---
+
+#### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| "The system cannot deploy" | `.cpanel.yml` missing or malformed | Ensure `.cpanel.yml` exists in repo root with valid YAML |
+| "Uncommitted changes exist" | `npm install` wrote a lockfile | Use `--no-package-lock` in `.cpanel.yml` (already set) |
+| "Database error" on login | `backend/.env` missing or wrong credentials | SSH → check/recreate `backend/.env` from `backend/.env.example` |
+| App crashes on start | `backend/logs/` doesn't exist | `.cpanel.yml` creates it; or run `mkdir -p backend/logs` via SSH |
+| Cannot write to uploads | Wrong permissions | Run `chmod -R 755 backend/uploads` via SSH |
 
 **PDF Storage on cPanel:**
-- ✅ Uses file system: `~/inventra_backend/uploads/pm-reports/`
-- ✅ Files persist forever (not ephemeral)
-- ✅ All users access same server = same files
-- ✅ No cloud storage needed for single-server setup
-- 🔴 **Important**: Setup automatic backups in cPanel
-
-**File Structure on cPanel:**
-```
-~/inventra_backend/
-├── uploads/
-│   └── pm-reports/          # PDF storage (create this!)
-│       ├── PM_Report_NADMA_123.pdf
-│       └── PM_Report_JPIC_456.pdf
-├── server.js
-├── .env
-├── package.json
-└── ...
-```
-
-**Common Issues:**
-- **Puppeteer not working**: Contact host to install chromium or enable Puppeteer support
-- **Cannot write to uploads/**: Check folder permissions (chmod 755)
-- **App crashes**: Check logs in cPanel Node.js App section
-
-**That's it!** Your PM report system works exactly like development - just create the uploads folder and deploy.
+- ✅ Uses file system: `backend/uploads/pm-reports/` (relative to app root)
+- ✅ Files persist between deployments
+- 🔴 **Important**: Set up automatic backups in cPanel → Backup Wizard
 
 ## 🚦 Development Status
 

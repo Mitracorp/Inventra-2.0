@@ -1,0 +1,18 @@
+---
+deployment:
+  tasks:
+    # Create required runtime directories (logs, upload subdirs) if missing
+    - /bin/mkdir -p backend/logs
+    - /bin/mkdir -p backend/uploads/pm-reports
+    - /bin/mkdir -p backend/uploads/signed-pm-reports
+    - /bin/mkdir -p backend/uploads/signature-staff
+    - /bin/mkdir -p backend/uploads/project-logo
+
+    # Install backend production dependencies.
+    # --no-package-lock prevents npm from writing/updating package-lock.json,
+    # which would leave the working tree dirty and block the next cPanel deploy.
+    - cd backend && npm install --production --no-package-lock
+
+    # Ensure upload and log directories are writable by the Node.js process
+    - /bin/chmod -R 755 backend/uploads
+    - /bin/chmod -R 755 backend/logs
