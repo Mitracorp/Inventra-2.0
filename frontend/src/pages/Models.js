@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { useNavigate } from 'react-router-dom';
 import { Cpu, Plus, Search, Package, ArrowLeft, X, Filter, AlertCircle, RefreshCw } from 'lucide-react';
@@ -13,6 +13,7 @@ const Models = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraModelsSortMode') || 'default');
   const [selectedModel, setSelectedModel] = useState(null);
   const [modelSpecs, setModelSpecs] = useState([]);
   const [loadingSpecs, setLoadingSpecs] = useState(false);
@@ -21,6 +22,10 @@ const Models = () => {
     fetchModels();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('inventraModelsSortMode', listSortMode);
+  }, [listSortMode]);
 
   const fetchModels = async () => {
     try {
@@ -110,6 +115,42 @@ const Models = () => {
     const matchesCategory = !selectedCategory || model.Category_ID === parseInt(selectedCategory);
     return matchesSearch && matchesCategory;
   });
+
+  const compareText = (a, b) => String(a || '').toLowerCase().localeCompare(String(b || '').toLowerCase());
+  const parseNumeric = (value) => {
+    const parsed = parseInt(String(value || '').replace(/[^0-9.-]/g, ''), 10);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  };
+
+  const sortedCategories = useMemo(() => {
+    if (listSortMode === 'default') return categories;
+
+    return [...categories].sort((a, b) => {
+      const aText = a.Category;
+      const bText = b.Category;
+
+      if (listSortMode === 'alpha-asc') return compareText(aText, bText);
+      if (listSortMode === 'alpha-desc') return compareText(bText, aText);
+      if (listSortMode === 'num-asc') return parseNumeric(aText) - parseNumeric(bText);
+      if (listSortMode === 'num-desc') return parseNumeric(bText) - parseNumeric(aText);
+      return 0;
+    });
+  }, [categories, listSortMode]);
+
+  const sortedFilteredModels = useMemo(() => {
+    if (listSortMode === 'default') return filteredModels;
+
+    return [...filteredModels].sort((a, b) => {
+      const aText = a.Model_Name || a.Category_Name || '';
+      const bText = b.Model_Name || b.Category_Name || '';
+
+      if (listSortMode === 'alpha-asc') return compareText(aText, bText);
+      if (listSortMode === 'alpha-desc') return compareText(bText, aText);
+      if (listSortMode === 'num-asc') return parseNumeric(a.Model_ID) - parseNumeric(b.Model_ID);
+      if (listSortMode === 'num-desc') return parseNumeric(b.Model_ID) - parseNumeric(a.Model_ID);
+      return 0;
+    });
+  }, [filteredModels, listSortMode]);
 
   return (
     <div style={{ padding: '0' }}>
@@ -264,11 +305,36 @@ const Models = () => {
                 onBlur={(e) => e.target.style.borderColor = '#e9ecef'}
               >
                 <option value="">All Categories</option>
-                {categories.map(cat => (
+                {sortedCategories.map(cat => (
                   <option key={cat.Category_ID} value={cat.Category_ID}>
                     {cat.Category}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+              <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '600' }}>List Order</span>
+              <select
+                value={listSortMode}
+                onChange={(e) => setListSortMode(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: 'white',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="default">Default</option>
+                <option value="alpha-asc">A-Z</option>
+                <option value="alpha-desc">Z-A</option>
+                <option value="num-asc">0-9</option>
+                <option value="num-desc">9-0</option>
               </select>
             </div>
 
@@ -368,14 +434,14 @@ const Models = () => {
         {/* Models Grid */}
         {!loading && !error && (
           <div>
-            {filteredModels.length > 0 ? (
+            {sortedFilteredModels.length > 0 ? (
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
                 gap: '20px',
                 marginBottom: '30px'
               }}>
-                {filteredModels.map((model) => (
+                {sortedFilteredModels.map((model) => (
                   <div
                     key={model.Model_ID}
                     style={{

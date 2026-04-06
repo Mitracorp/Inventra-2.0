@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Mail, Lock, Bell, Shield, Palette, Save, Eye, EyeOff, CheckCircle, Users, Plus, X, Edit, Trash2, PenTool } from 'lucide-react';
 import { authenticatedFetch, handleTokenExpiration } from '../utils/authUtils';
 import { API_URL } from '../config/api';
@@ -14,6 +14,7 @@ const AccountSettings = () => {
   const [loading, setLoading] = useState(true);
   const [updateMessage, setUpdateMessage] = useState({ type: '', text: '' });
   const [allUsers, setAllUsers] = useState([]);
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraAccountSettingsSortMode') || 'default');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showNewUserPassword, setShowNewUserPassword] = useState(false);
@@ -113,6 +114,45 @@ const AccountSettings = () => {
       fetchCustomerNames();
     }
   }, [showAddUserModal]);
+
+  useEffect(() => {
+    localStorage.setItem('inventraAccountSettingsSortMode', listSortMode);
+  }, [listSortMode]);
+
+  const parseNumeric = (value) => {
+    const parsed = parseInt(String(value || '').replace(/[^0-9.-]/g, ''), 10);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  };
+
+  const sortedAllUsers = useMemo(() => {
+    if (listSortMode === 'default') return allUsers;
+
+    return [...allUsers].sort((a, b) => {
+      const aText = `${a.firstName || ''} ${a.lastName || ''} ${a.username || ''}`.trim().toLowerCase();
+      const bText = `${b.firstName || ''} ${b.lastName || ''} ${b.username || ''}`.trim().toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aText.localeCompare(bText);
+      if (listSortMode === 'alpha-desc') return bText.localeCompare(aText);
+      if (listSortMode === 'num-asc') return parseNumeric(a.username) - parseNumeric(b.username);
+      if (listSortMode === 'num-desc') return parseNumeric(b.username) - parseNumeric(a.username);
+      return 0;
+    });
+  }, [allUsers, listSortMode]);
+
+  const sortedCustomerList = useMemo(() => {
+    if (listSortMode === 'default') return customerList;
+
+    return [...customerList].sort((a, b) => {
+      const aText = String(a || '').toLowerCase();
+      const bText = String(b || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aText.localeCompare(bText);
+      if (listSortMode === 'alpha-desc') return bText.localeCompare(aText);
+      if (listSortMode === 'num-asc') return parseNumeric(a) - parseNumeric(b);
+      if (listSortMode === 'num-desc') return parseNumeric(b) - parseNumeric(a);
+      return 0;
+    });
+  }, [customerList, listSortMode]);
 
   // Initialize signature canvas when Add User modal opens
   useEffect(() => {
@@ -1153,21 +1193,43 @@ const AccountSettings = () => {
               ) : (
                 // Admin view - full access
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
                     <div>
                       <h2 style={{ margin: 0 }}>User Management</h2>
                       <p style={{ color: '#666', marginTop: '5px', marginBottom: 0 }}>
                         View all registered users in the system
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowAddUserModal(true)}
-                      className="btn btn-primary"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <Plus size={18} />
-                      Add New User
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '600' }}>List Order</span>
+                      <select
+                        value={listSortMode}
+                        onChange={(e) => setListSortMode(e.target.value)}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: 'white',
+                          fontSize: '0.9rem',
+                          color: '#374151',
+                          minWidth: '130px'
+                        }}
+                      >
+                        <option value="default">Default</option>
+                        <option value="alpha-asc">A-Z</option>
+                        <option value="alpha-desc">Z-A</option>
+                        <option value="num-asc">0-9</option>
+                        <option value="num-desc">9-0</option>
+                      </select>
+                      <button
+                        onClick={() => setShowAddUserModal(true)}
+                        className="btn btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <Plus size={18} />
+                        Add New User
+                      </button>
+                    </div>
                   </div>
                   
                   {loadingUsers ? (
@@ -1258,14 +1320,14 @@ const AccountSettings = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {allUsers.length === 0 ? (
+                      {sortedAllUsers.length === 0 ? (
                         <tr>
                           <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
                             No users found
                           </td>
                         </tr>
                       ) : (
-                        allUsers.map((user) => (
+                        sortedAllUsers.map((user) => (
                           <tr key={user.userId} style={{ 
                             borderBottom: '1px solid #f0f0f0',
                             transition: 'background-color 0.2s'
@@ -1601,8 +1663,8 @@ const AccountSettings = () => {
                     {loadingCustomers ? (
                       <option disabled>Loading customers...</option>
                     ) : (
-                      customerList && customerList.length > 0 ? (
-                        customerList.map((customer, index) => (
+                      sortedCustomerList && sortedCustomerList.length > 0 ? (
+                        sortedCustomerList.map((customer, index) => (
                           <option key={index} value={customer}>
                             {customer}
                           </option>
@@ -1876,8 +1938,8 @@ const AccountSettings = () => {
                     {loadingCustomers ? (
                       <option disabled>Loading customers...</option>
                     ) : (
-                      customerList && customerList.length > 0 ? (
-                        customerList.map((customer, index) => (
+                      sortedCustomerList && sortedCustomerList.length > 0 ? (
+                        sortedCustomerList.map((customer, index) => (
                           <option key={index} value={customer}>
                             {customer}
                           </option>

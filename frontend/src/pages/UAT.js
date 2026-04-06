@@ -141,6 +141,39 @@ const buildPeripheralSelectionsFromAsset = (asset = {}) => {
   return baseSelections;
 };
 
+const parseSortNumber = (value) => {
+  const numeric = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const sortListItems = (items, getValue, mode = 'default') => {
+  if (mode === 'default') return items;
+
+  const sorted = [...items];
+  sorted.sort((left, right) => {
+    const leftValue = getValue(left);
+    const rightValue = getValue(right);
+
+    if (mode === 'numeric-asc' || mode === 'numeric-desc') {
+      const leftNumber = parseSortNumber(leftValue);
+      const rightNumber = parseSortNumber(rightValue);
+      if (leftNumber !== null && rightNumber !== null) {
+        return mode === 'numeric-asc' ? leftNumber - rightNumber : rightNumber - leftNumber;
+      }
+      if (leftNumber !== null) return -1;
+      if (rightNumber !== null) return 1;
+    }
+
+    const result = String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, {
+      sensitivity: 'base',
+      numeric: true
+    });
+    return mode === 'alpha-desc' ? -result : result;
+  });
+
+  return sorted;
+};
+
 const getChecklistByCategory = (asset = {}) => {
   const category = String(asset.Category || '').toLowerCase();
   const itemName = String(asset.Item_Name || '').toLowerCase();
@@ -447,6 +480,7 @@ const UAT = () => {
   const [showOnlyWithUAT, setShowOnlyWithUAT] = useState(false);
   const [bulkAssetType, setBulkAssetType] = useState('');
   const [bulkDownloading, setBulkDownloading] = useState('');
+  const [listSortMode, setListSortMode] = useState('default');
 
   const [recipientName, setRecipientName] = useState('');
   const [recipientDepartment, setRecipientDepartment] = useState('');
@@ -499,8 +533,8 @@ const UAT = () => {
       )
     );
 
-    return unique.sort((a, b) => a.localeCompare(b));
-  }, [assets]);
+    return sortListItems(unique, (item) => item, listSortMode);
+  }, [assets, listSortMode]);
 
   const branchOptions = useMemo(() => {
     if (!selectedCustomer) return [];
@@ -514,8 +548,8 @@ const UAT = () => {
       )
     );
 
-    return unique.sort((a, b) => a.localeCompare(b));
-  }, [assets, selectedCustomer]);
+    return sortListItems(unique, (item) => item, listSortMode);
+  }, [assets, selectedCustomer, listSortMode]);
 
   const scopedAssets = useMemo(() => {
     if (!selectedCustomer || !selectedBranch) return [];
@@ -535,10 +569,15 @@ const UAT = () => {
 
     const orderedTypes = ['Desktop/AIO', 'Notebook/Laptop', 'Tablet', 'Printer', 'Projector', 'Server', 'Network'];
 
-    return orderedTypes
+    const cards = orderedTypes
       .filter((key) => (counts[key] || 0) > 0 || key === 'Tablet')
       .map((key) => ({ key, count: counts[key] || 0 }));
-  }, [scopedAssets]);
+
+    if (listSortMode === 'default') return cards;
+    return sortListItems(cards, (item) => (
+      listSortMode.startsWith('numeric') ? item.count : item.key
+    ), listSortMode);
+  }, [scopedAssets, listSortMode]);
 
   const filteredAssets = useMemo(() => {
     if (!selectedAssetType) return [];
@@ -575,13 +614,29 @@ const UAT = () => {
       ? enhanced.filter((asset) => asset.uatCount > 0)
       : enhanced;
 
+    if (listSortMode === 'alpha-asc') {
+      return sortListItems(withFilter, (asset) => asset.Asset_Serial_Number || asset.Item_Name || '', 'alpha-asc');
+    }
+
+    if (listSortMode === 'alpha-desc') {
+      return sortListItems(withFilter, (asset) => asset.Asset_Serial_Number || asset.Item_Name || '', 'alpha-desc');
+    }
+
+    if (listSortMode === 'numeric-asc') {
+      return sortListItems(withFilter, (asset) => asset.Asset_ID || 0, 'numeric-asc');
+    }
+
+    if (listSortMode === 'numeric-desc') {
+      return sortListItems(withFilter, (asset) => asset.Asset_ID || 0, 'numeric-desc');
+    }
+
     return withFilter.sort((a, b) => {
       const aTime = a.latestUatDate ? new Date(a.latestUatDate).getTime() : 0;
       const bTime = b.latestUatDate ? new Date(b.latestUatDate).getTime() : 0;
       if (aTime !== bTime) return bTime - aTime;
       return String(a.Asset_Serial_Number || '').localeCompare(String(b.Asset_Serial_Number || ''));
     });
-  }, [filteredAssets, showOnlyWithUAT, uatHistoryByAssetId]);
+  }, [filteredAssets, showOnlyWithUAT, uatHistoryByAssetId, listSortMode]);
 
   const doneAssetTypesForSelectedCustomer = useMemo(() => {
     if (!selectedCustomer) return [];
@@ -595,10 +650,15 @@ const UAT = () => {
         return acc;
       }, {});
 
-    return Object.entries(typeCounts)
+    const typedList = Object.entries(typeCounts)
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => a.type.localeCompare(b.type));
-  }, [assets, selectedCustomer, globalUatHistoryByAssetId]);
+
+    if (listSortMode === 'default') return typedList;
+    return sortListItems(typedList, (item) => (
+      listSortMode.startsWith('numeric') ? item.count : item.type
+    ), listSortMode);
+  }, [assets, selectedCustomer, globalUatHistoryByAssetId, listSortMode]);
 
   useEffect(() => {
     const fetchUatHistory = async () => {
@@ -1100,6 +1160,19 @@ const UAT = () => {
       </div>
 
       <div style={cardStyle}>
+        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ minWidth: 230 }}>
+            <label style={labelStyle}>List Order</label>
+            <select value={listSortMode} onChange={(event) => setListSortMode(event.target.value)} style={inputStyle}>
+              <option value="default">Default</option>
+              <option value="alpha-asc">A-Z</option>
+              <option value="alpha-desc">Z-A</option>
+              <option value="numeric-asc">Numeric (0-9)</option>
+              <option value="numeric-desc">Numeric (9-0)</option>
+            </select>
+          </div>
+        </div>
+
         <div style={{
           border: '1px solid #cbd5e1',
           borderRadius: 10,

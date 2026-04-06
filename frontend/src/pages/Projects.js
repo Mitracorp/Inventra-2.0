@@ -142,6 +142,7 @@ const Projects = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraProjectsSortMode') || 'default');
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, project: null });
@@ -212,6 +213,10 @@ const Projects = () => {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('inventraProjectsSortMode', listSortMode);
+  }, [listSortMode]);
 
   // Handle delete button click - show confirmation with preview
   const handleDeleteClick = async (project) => {
@@ -352,6 +357,30 @@ const Projects = () => {
       
       return matchesSearch && matchesStatus;
     });
+
+  const sortedFilteredProjects = useMemo(() => {
+    if (listSortMode === 'default') return filteredProjects;
+
+    const extractSortValue = (project) => {
+      const primary = project.Customer_Name || project.Project_Title || project.Project_Ref_Number || '';
+      const numeric = parseInt(String(primary).replace(/[^0-9.-]/g, ''), 10);
+      return {
+        alpha: String(primary).toLowerCase(),
+        numeric: Number.isNaN(numeric) ? Number.MAX_SAFE_INTEGER : numeric
+      };
+    };
+
+    return [...filteredProjects].sort((a, b) => {
+      const aValue = extractSortValue(a);
+      const bValue = extractSortValue(b);
+
+      if (listSortMode === 'alpha-asc') return aValue.alpha.localeCompare(bValue.alpha);
+      if (listSortMode === 'alpha-desc') return bValue.alpha.localeCompare(aValue.alpha);
+      if (listSortMode === 'num-asc') return aValue.numeric - bValue.numeric;
+      if (listSortMode === 'num-desc') return bValue.numeric - aValue.numeric;
+      return 0;
+    });
+  }, [filteredProjects, listSortMode]);
 
   const statuses = ['Active', 'Completed', 'Unknown'];
 
@@ -538,11 +567,35 @@ const Projects = () => {
                 ))}
               </select>
             </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+              <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '600' }}>List Order</span>
+              <select
+                value={listSortMode}
+                onChange={(e) => setListSortMode(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '12px 15px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  backgroundColor: 'white',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                <option value="default">Default</option>
+                <option value="alpha-asc">A-Z</option>
+                <option value="alpha-desc">Z-A</option>
+                <option value="num-asc">0-9</option>
+                <option value="num-desc">9-0</option>
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Projects Grid */}
-        {filteredProjects.length === 0 ? (
+        {sortedFilteredProjects.length === 0 ? (
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -563,7 +616,7 @@ const Projects = () => {
             gap: '25px',
             marginBottom: '40px'
           }}>
-            {filteredProjects.map(project => {
+            {sortedFilteredProjects.map(project => {
               const projectStatus = getProjectStatus(project.End_Date);
               const statusConfig = {
                 'Active': { 

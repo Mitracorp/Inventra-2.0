@@ -175,6 +175,7 @@ const PreventiveMaintenance = () => {
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraPMSortMode') || 'default');
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -306,6 +307,10 @@ const PreventiveMaintenance = () => {
   const [showOnlyWithPM, setShowOnlyWithPM] = useState(false);
   const [showOnlyWithPMBeforeDeleteMode, setShowOnlyWithPMBeforeDeleteMode] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem('inventraPMSortMode', listSortMode);
+  }, [listSortMode]);
+
   // Filtered lists for dropdowns (client-side search)
   const filteredCustomers = useMemo(() => {
     const q = customerFilterQuery.trim().toLowerCase();
@@ -322,6 +327,41 @@ const PreventiveMaintenance = () => {
     if (!q) return branches;
     return branches.filter(b => (b || '').toLowerCase().includes(q));
   }, [branches, branchFilterQuery]);
+
+  const parseNumeric = (value) => {
+    const parsed = parseInt(String(value || '').replace(/[^0-9.-]/g, ''), 10);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  };
+
+  const sortedCustomers = useMemo(() => {
+    if (listSortMode === 'default') return filteredCustomers;
+
+    return [...filteredCustomers].sort((a, b) => {
+      const aName = String(a.Customer_Name || '').toLowerCase();
+      const bName = String(b.Customer_Name || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aName.localeCompare(bName);
+      if (listSortMode === 'alpha-desc') return bName.localeCompare(aName);
+      if (listSortMode === 'num-asc') return parseNumeric(a.Customer_Ref_Number) - parseNumeric(b.Customer_Ref_Number);
+      if (listSortMode === 'num-desc') return parseNumeric(b.Customer_Ref_Number) - parseNumeric(a.Customer_Ref_Number);
+      return 0;
+    });
+  }, [filteredCustomers, listSortMode]);
+
+  const sortedBranches = useMemo(() => {
+    if (listSortMode === 'default') return filteredBranches;
+
+    return [...filteredBranches].sort((a, b) => {
+      const aValue = String(a || '').toLowerCase();
+      const bValue = String(b || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aValue.localeCompare(bValue);
+      if (listSortMode === 'alpha-desc') return bValue.localeCompare(aValue);
+      if (listSortMode === 'num-asc') return parseNumeric(a) - parseNumeric(b);
+      if (listSortMode === 'num-desc') return parseNumeric(b) - parseNumeric(a);
+      return 0;
+    });
+  }, [filteredBranches, listSortMode]);
 
   // Initialize from URL parameters on mount
   useEffect(() => {
@@ -1767,9 +1807,34 @@ const PreventiveMaintenance = () => {
 
       {/* Filters */}
       <div className="card" style={{ marginBottom: '15px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', paddingBottom: '12px', borderBottom: '2px solid #3498db' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '15px', paddingBottom: '12px', borderBottom: '2px solid #3498db', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Filter size={22} color="#3498db" />
           <h3 style={{ margin: 0, color: '#2c3e50', fontSize: '1.1rem' }}>Filter PM Records</h3>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+            <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '600' }}>List Order</span>
+            <select
+              value={listSortMode}
+              onChange={(e) => setListSortMode(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '10px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                backgroundColor: 'white',
+                color: '#374151',
+                fontSize: '0.95rem',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="default">Default</option>
+              <option value="alpha-asc">A-Z</option>
+              <option value="alpha-desc">Z-A</option>
+              <option value="num-asc">0-9</option>
+              <option value="num-desc">9-0</option>
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
@@ -1781,7 +1846,7 @@ const PreventiveMaintenance = () => {
             <SearchableDropdown
               value={selectedCustomer}
               onChangeEvent={handleCustomerChange}
-              options={customers}
+              options={sortedCustomers}
               getOptionValue={(c) => c.Customer_ID}
               renderOption={(c) => {
                 const pmCount = customerPMCounts[c.Customer_ID] || 0;
@@ -1806,7 +1871,7 @@ const PreventiveMaintenance = () => {
             <SearchableDropdown
               value={selectedBranch}
               onChangeEvent={handleBranchChange}
-              options={branches}
+              options={sortedBranches}
               getOptionValue={(b) => b}
               renderOption={(b) => {
                 const pmCount = branchPMCounts[b] || 0;

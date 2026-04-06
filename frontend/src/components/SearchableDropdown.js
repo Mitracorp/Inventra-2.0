@@ -1,5 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronDown, X, Search } from 'lucide-react';
+
+const LIST_SORT_STORAGE_KEY = 'inventraListSortMode';
+
+const parseNumericValue = (value) => {
+  const normalized = String(value ?? '').replace(/[^0-9.-]/g, '');
+  if (!normalized) return null;
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : null;
+};
+
+const compareOptionValues = (leftValue, rightValue, mode) => {
+  if (mode === 'numeric-asc' || mode === 'numeric-desc') {
+    const leftNumeric = parseNumericValue(leftValue);
+    const rightNumeric = parseNumericValue(rightValue);
+
+    if (leftNumeric !== null && rightNumeric !== null) {
+      return mode === 'numeric-asc' ? leftNumeric - rightNumeric : rightNumeric - leftNumeric;
+    }
+
+    if (leftNumeric !== null) return -1;
+    if (rightNumeric !== null) return 1;
+  }
+
+  const alphaResult = String(leftValue ?? '').localeCompare(String(rightValue ?? ''), undefined, {
+    sensitivity: 'base',
+    numeric: true
+  });
+
+  return mode === 'alpha-desc' ? -alphaResult : alphaResult;
+};
 
 const SearchableDropdown = ({ 
   options = [], 
@@ -15,6 +45,7 @@ const SearchableDropdown = ({
   maxHeight = 200,
   clearable = true,
   renderOption,
+  enableSort = true,
   getOptionLabel = (option) => option.label || option.name || option,
   getOptionValue = (option) => option.value || option.id || option
 }) => {
@@ -26,19 +57,42 @@ const SearchableDropdown = ({
   const dropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   const optionRefs = useRef([]);
+  const handleSelectOption = useCallback((option) => {
+    onChange(getOptionValue(option), option);
+    setIsOpen(false);
+    setSearchTerm('');
+    setHighlightedIndex(-1);
+  }, [onChange, getOptionValue]);
+
+  const [sortMode, setSortMode] = useState(() => {
+    const savedMode = localStorage.getItem(LIST_SORT_STORAGE_KEY);
+    return savedMode || 'alpha-asc';
+  });
+
+  useEffect(() => {
+    if (!enableSort) return;
+    localStorage.setItem(LIST_SORT_STORAGE_KEY, sortMode);
+  }, [enableSort, sortMode]);
+
+  const sortedOptions = useMemo(() => {
+    if (!enableSort) return options;
+    return [...options].sort((left, right) => (
+      compareOptionValues(getOptionLabel(left), getOptionLabel(right), sortMode)
+    ));
+  }, [enableSort, options, sortMode, getOptionLabel]);
 
   // Filter options based on search term
   useEffect(() => {
     if (!searchTerm.trim()) {
-      setFilteredOptions(options);
+      setFilteredOptions(sortedOptions);
     } else {
-      const filtered = options.filter(option => 
+      const filtered = sortedOptions.filter(option => 
         getOptionLabel(option).toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredOptions(filtered);
     }
     setHighlightedIndex(-1);
-  }, [searchTerm, options, getOptionLabel]);
+  }, [searchTerm, sortedOptions, getOptionLabel]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -86,12 +140,14 @@ const SearchableDropdown = ({
           setIsOpen(false);
           setSearchTerm('');
           break;
+        default:
+          break;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, highlightedIndex, filteredOptions]);
+  }, [isOpen, highlightedIndex, filteredOptions, handleSelectOption]);
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -103,13 +159,6 @@ const SearchableDropdown = ({
     }
   }, [highlightedIndex]);
 
-  const handleSelectOption = (option) => {
-    onChange(getOptionValue(option), option);
-    setIsOpen(false);
-    setSearchTerm('');
-    setHighlightedIndex(-1);
-  };
-
   const handleClear = (e) => {
     e.stopPropagation();
     onChange('', null);
@@ -120,18 +169,6 @@ const SearchableDropdown = ({
     const selectedOption = options.find(option => getOptionValue(option) === value);
     return selectedOption ? getOptionLabel(selectedOption) : value;
   };
-
-  const defaultRenderOption = (option, index) => (
-    <div
-      key={getOptionValue(option)}
-      ref={el => optionRefs.current[index] = el}
-      className={`dropdown-option ${highlightedIndex === index ? 'highlighted' : ''}`}
-      onClick={() => handleSelectOption(option)}
-      onMouseEnter={() => setHighlightedIndex(index)}
-    >
-      {getOptionLabel(option)}
-    </div>
-  );
 
   return (
     <div className="searchable-dropdown-container" ref={dropdownRef}>
@@ -239,6 +276,22 @@ const SearchableDropdown = ({
           align-items: center;
           gap: 8px;
           flex-shrink: 0;
+        }
+
+        .sort-select {
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          padding: 5px 8px;
+          font-size: 12px;
+          color: #374151;
+          background: white;
+          min-width: 110px;
+        }
+
+        .sort-select:focus {
+          outline: none;
+          border-color: #007bff;
+          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
         }
         
         .search-input {
@@ -352,6 +405,19 @@ const SearchableDropdown = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {enableSort && (
+              <select
+                className="sort-select"
+                value={sortMode}
+                onChange={(event) => setSortMode(event.target.value)}
+                title="Sort options"
+              >
+                <option value="alpha-asc">A-Z</option>
+                <option value="alpha-desc">Z-A</option>
+                <option value="numeric-asc">0-9</option>
+                <option value="numeric-desc">9-0</option>
+              </select>
+            )}
           </div>
 
           <div className="options-container">
