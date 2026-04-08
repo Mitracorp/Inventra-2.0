@@ -51,7 +51,8 @@ router.get('/history-summary', authenticateToken, async (req, res) => {
     const data = await uatPdfGenerator.getHistorySummary({
       customerName: req.query.customerName,
       branch: req.query.branch,
-      assetType: req.query.assetType
+      assetType: req.query.assetType,
+      assetId: req.query.assetId
     });
 
     return res.json({

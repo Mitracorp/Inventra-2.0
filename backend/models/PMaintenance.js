@@ -304,6 +304,7 @@ class PMaintenance {
           cust.Customer_Name,
           cust.Branch,
           p.Project_Title,
+          p.Company_Full_Name,
           p.file_path_logo as Project_Logo_Path
         FROM PMAINTENANCE pm
         LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
@@ -353,6 +354,7 @@ class PMaintenance {
           cust.Customer_Name,
           cust.Branch,
           p.Project_Title,
+          p.Company_Full_Name,
           p.file_path_logo as Project_Logo_Path
         FROM ASSET a
         LEFT JOIN CATEGORY c ON a.Category_ID = c.Category_ID

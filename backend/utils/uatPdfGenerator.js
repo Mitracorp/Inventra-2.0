@@ -105,6 +105,7 @@ class UATPdfGenerator {
     const normalizedCustomer = String(filters.customerName || '').trim().toLowerCase();
     const normalizedBranch = String(filters.branch || '').trim().toLowerCase();
     const normalizedType = String(filters.assetType || '').trim().toLowerCase();
+    const normalizedAssetId = String(filters.assetId || '').trim();
 
     const isMatchingType = (entry) => {
       if (!normalizedType) return true;
@@ -124,7 +125,7 @@ class UATPdfGenerator {
       }
 
       if (normalizedType === 'tablet') {
-        return haystack.includes('tablet') || haystack.includes('2 in 1') || haystack.includes('2in1') || haystack.includes('detachable');
+        return haystack.includes('tablet') || haystack.includes('ipad') || haystack.includes('2 in 1') || haystack.includes('2in1') || haystack.includes('detachable');
       }
 
       if (normalizedType === 'notebook/laptop') {
@@ -147,6 +148,7 @@ class UATPdfGenerator {
           haystack.includes('projector') ||
           haystack.includes('epson') ||
           haystack.includes('tablet') ||
+          haystack.includes('ipad') ||
           haystack.includes('2 in 1') ||
           haystack.includes('2in1') ||
           haystack.includes('detachable') ||
@@ -164,6 +166,10 @@ class UATPdfGenerator {
     };
 
     const filteredEntries = entries.filter((entry) => {
+      if (normalizedAssetId && String(entry.assetId || '').trim() !== normalizedAssetId) {
+        return false;
+      }
+
       if (normalizedCustomer && String(entry.customerName || '').trim().toLowerCase() !== normalizedCustomer) {
         return false;
       }
@@ -256,7 +262,7 @@ class UATPdfGenerator {
       }
 
       if (normalizedType === 'tablet') {
-        return haystack.includes('tablet') || haystack.includes('2 in 1') || haystack.includes('2in1') || haystack.includes('detachable');
+        return haystack.includes('tablet') || haystack.includes('ipad') || haystack.includes('2 in 1') || haystack.includes('2in1') || haystack.includes('detachable');
       }
 
       if (normalizedType === 'notebook/laptop') {
@@ -279,6 +285,7 @@ class UATPdfGenerator {
           haystack.includes('projector') ||
           haystack.includes('epson') ||
           haystack.includes('tablet') ||
+          haystack.includes('ipad') ||
           haystack.includes('2 in 1') ||
           haystack.includes('2in1') ||
           haystack.includes('detachable') ||

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ClipboardCheck, PenTool, Search, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { API_URL } from '../config/api';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -208,7 +209,7 @@ const getFormCategoryTitle = (asset = {}) => {
     return 'PROJEKTOR';
   }
 
-  if (haystack.includes('tablet')) {
+  if (haystack.includes('tablet') || haystack.includes('ipad')) {
     return 'TABLET (2 IN 1)';
   }
 
@@ -245,6 +246,7 @@ const getAssetTypeKey = (asset = {}) => {
 
   if (
     haystack.includes('tablet') ||
+    haystack.includes('ipad') ||
     haystack.includes('2 in 1') ||
     haystack.includes('2in1') ||
     haystack.includes('detachable')
@@ -465,6 +467,7 @@ const SuccessDialog = ({ isOpen, onClose, message }) => {
 
 const UAT = () => {
   usePageTitle('UAT Form');
+  const location = useLocation();
 
   const [assets, setAssets] = useState([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
@@ -495,6 +498,10 @@ const UAT = () => {
   const [successDialogMessage, setSuccessDialogMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [viewingAssetId, setViewingAssetId] = useState('');
+  const [prefillApplied, setPrefillApplied] = useState(false);
+  const [suppressDependentReset, setSuppressDependentReset] = useState(false);
+  const [lockDeepLinkedAsset, setLockDeepLinkedAsset] = useState(false);
+  const prefillTargetAssetIdRef = useRef('');
 
   useEffect(() => {
     const fetchAssets = async () => {
@@ -523,6 +530,51 @@ const UAT = () => {
 
     fetchAssets();
   }, []);
+
+  useEffect(() => {
+    if (prefillApplied || assets.length === 0) return;
+
+    const params = new URLSearchParams(location.search || '');
+    const customerParam = String(params.get('customer') || '').trim();
+    const branchParam = String(params.get('branch') || '').trim();
+    const assetIdParam = String(params.get('assetId') || '').trim();
+
+    if (!customerParam && !branchParam && !assetIdParam) {
+      setPrefillApplied(true);
+      return;
+    }
+
+    setSuppressDependentReset(true);
+
+    if (customerParam) setSelectedCustomer(customerParam);
+    if (branchParam) setSelectedBranch(branchParam);
+
+    if (assetIdParam) {
+      prefillTargetAssetIdRef.current = assetIdParam;
+      setLockDeepLinkedAsset(true);
+      const matchedAsset = assets.find((asset) => String(asset.Asset_ID) === assetIdParam);
+      if (matchedAsset) {
+        const matchedCustomer = String(matchedAsset.Customer_Name || '').trim();
+        const matchedBranch = String(matchedAsset.Branch || '').trim();
+
+        if (matchedCustomer) setSelectedCustomer(matchedCustomer);
+        if (matchedBranch) setSelectedBranch(matchedBranch);
+        setSelectedAssetType(getAssetTypeKey(matchedAsset));
+        setSelectedAssetId(String(matchedAsset.Asset_ID));
+      }
+    }
+
+    setPrefillApplied(true);
+  }, [assets, location.search, prefillApplied]);
+
+  useEffect(() => {
+    if (!suppressDependentReset) return;
+
+    const targetId = String(prefillTargetAssetIdRef.current || '').trim();
+    if (!targetId || String(selectedAssetId) === targetId) {
+      setSuppressDependentReset(false);
+    }
+  }, [selectedAssetId, suppressDependentReset]);
 
   const customerOptions = useMemo(() => {
     const unique = Array.from(
@@ -777,28 +829,40 @@ const UAT = () => {
   );
 
   useEffect(() => {
+    if (suppressDependentReset || lockDeepLinkedAsset) return;
     setSelectedBranch('');
     setSelectedAssetType('');
     setAssetSearch('');
     setSelectedAssetId('');
     setBulkAssetType('');
-  }, [selectedCustomer]);
+  }, [selectedCustomer, suppressDependentReset, lockDeepLinkedAsset]);
 
   useEffect(() => {
+    if (suppressDependentReset || lockDeepLinkedAsset) return;
     setSelectedAssetType('');
     setAssetSearch('');
     setSelectedAssetId('');
-  }, [selectedBranch]);
+  }, [selectedBranch, suppressDependentReset, lockDeepLinkedAsset]);
 
   useEffect(() => {
+    if (suppressDependentReset || lockDeepLinkedAsset) return;
     setAssetSearch('');
     setSelectedAssetId('');
     setShowOnlyWithUAT(false);
-  }, [selectedAssetType]);
+  }, [selectedAssetType, suppressDependentReset, lockDeepLinkedAsset]);
 
   const selectedAsset = useMemo(
     () => assets.find((asset) => String(asset.Asset_ID) === String(selectedAssetId)),
     [assets, selectedAssetId]
+  );
+
+  const deepLinkedAssetId = useMemo(() => {
+    const params = new URLSearchParams(location.search || '');
+    return String(params.get('assetId') || '').trim();
+  }, [location.search]);
+
+  const isDeepLinkedAssetSelected = Boolean(
+    deepLinkedAssetId && selectedAsset && String(selectedAsset.Asset_ID) === deepLinkedAssetId
   );
 
   const checklistTemplate = useMemo(() => getChecklistByCategory(selectedAsset), [selectedAsset]);
@@ -1099,65 +1163,85 @@ const UAT = () => {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: '0' }}>
       <div style={{
-        borderRadius: 14,
-        background: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-        color: '#fff',
-        padding: '22px 24px',
-        marginBottom: 18,
-        boxShadow: '0 8px 22px rgba(0,0,0,0.15)'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        marginBottom: '30px',
+        paddingBottom: '15px',
+        borderBottom: '3px solid #667eea',
+        padding: '0 20px 15px 20px'
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.7rem', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ClipboardCheck size={28} /> User Acceptance Test (UAT)
-        </h1>
-        <p style={{ margin: '6px 0 0 0', opacity: 0.92 }}>
-          Select an asset, tick all required conditions, collect recipient signature, then generate the UAT PDF.
-        </p>
-
-        <div
-          style={{
-            marginTop: 14,
-            border: '1px solid rgba(191, 219, 254, 0.45)',
-            background: 'rgba(15, 23, 42, 0.35)',
-            borderRadius: 12,
-            padding: '10px 12px'
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-            <strong style={{ fontSize: 14 }}>Pending UAT by Customer</strong>
-            <span style={{ fontSize: 12, opacity: 0.95 }}>
-              {loadingGlobalHistory || loadingAssets
-                ? 'Calculating...'
-                : `${totalPendingAssets} pending asset(s)`}
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <ClipboardCheck size={28} color="#667eea" />
+          <div>
+            <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '1.4rem' }}>
+              User Acceptance Test (UAT)
+            </h2>
+            <p style={{ margin: '5px 0 0 0', color: '#7f8c8d', fontSize: '0.9rem' }}>
+              Select an asset, verify checklist conditions, capture signature, and generate the UAT PDF.
+            </p>
           </div>
-
-          {loadingGlobalHistory || loadingAssets ? (
-            <div style={{ fontSize: 13, opacity: 0.9 }}>Loading UAT pending summary...</div>
-          ) : pendingByCustomer.length === 0 ? (
-            <div style={{ fontSize: 13, opacity: 0.95 }}>All assets already have UAT forms submitted.</div>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {pendingByCustomer.map((item) => (
-                <div
-                  key={item.customerName}
-                  style={{
-                    border: '1px solid rgba(147, 197, 253, 0.6)',
-                    background: 'rgba(30, 41, 59, 0.55)',
-                    borderRadius: 999,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    color: '#e0edff'
-                  }}
-                >
-                  <strong>{item.customerName}</strong>: {item.pendingAssets} pending
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      <div style={{ padding: '0 20px' }}>
+
+      <div style={{ ...cardStyle, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+          <strong style={{ fontSize: 14, color: '#1f2937' }}>Pending UAT by Customer</strong>
+          <span style={{ fontSize: 12, color: '#4b5563' }}>
+            {loadingGlobalHistory || loadingAssets
+              ? 'Calculating...'
+              : `${totalPendingAssets} pending asset(s)`}
+          </span>
+        </div>
+
+        {loadingGlobalHistory || loadingAssets ? (
+          <div style={{ fontSize: 13, color: '#6b7280' }}>Loading UAT pending summary...</div>
+        ) : pendingByCustomer.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#6b7280' }}>All assets already have UAT forms submitted.</div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {pendingByCustomer.map((item) => (
+              <div
+                key={item.customerName}
+                style={{
+                  border: '1px solid #bfdbfe',
+                  background: '#eff6ff',
+                  borderRadius: 999,
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  color: '#1e3a8a'
+                }}
+              >
+                <strong>{item.customerName}</strong>: {item.pendingAssets} pending
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {deepLinkedAssetId && (
+        <div
+          style={{
+            marginBottom: 14,
+            borderRadius: 12,
+            border: `1px solid ${isDeepLinkedAssetSelected ? '#86efac' : '#fcd34d'}`,
+            background: isDeepLinkedAssetSelected ? '#f0fdf4' : '#fffbeb',
+            color: isDeepLinkedAssetSelected ? '#166534' : '#92400e',
+            padding: '10px 12px',
+            fontSize: 13,
+            fontWeight: 600
+          }}
+        >
+          {isDeepLinkedAssetSelected
+            ? `Opened from selected asset: ${selectedAsset.Asset_Tag_ID || selectedAsset.Asset_Serial_Number || selectedAsset.Asset_ID}`
+            : 'Opened from asset detail. Matching asset is being prepared from current filters...'}
+        </div>
+      )}
 
       <div style={cardStyle}>
         <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
@@ -1240,7 +1324,10 @@ const UAT = () => {
             <label style={labelStyle}>1. Select Client</label>
             <select
               value={selectedCustomer}
-              onChange={(event) => setSelectedCustomer(event.target.value)}
+              onChange={(event) => {
+                setLockDeepLinkedAsset(false);
+                setSelectedCustomer(event.target.value);
+              }}
               style={inputStyle}
               disabled={loadingAssets}
             >
@@ -1254,7 +1341,10 @@ const UAT = () => {
             <label style={labelStyle}>2. Select Branch</label>
             <select
               value={selectedBranch}
-              onChange={(event) => setSelectedBranch(event.target.value)}
+              onChange={(event) => {
+                setLockDeepLinkedAsset(false);
+                setSelectedBranch(event.target.value);
+              }}
               style={inputStyle}
               disabled={loadingAssets || !selectedCustomer}
             >
@@ -1281,7 +1371,10 @@ const UAT = () => {
                     <button
                       type="button"
                       key={typeCard.key}
-                      onClick={() => setSelectedAssetType(typeCard.key)}
+                      onClick={() => {
+                        setLockDeepLinkedAsset(false);
+                        setSelectedAssetType(typeCard.key);
+                      }}
                       style={{
                         border: `1px solid ${isActive ? '#2563eb' : '#d1d5db'}`,
                         background: isActive ? '#dbeafe' : '#fff',
@@ -1632,6 +1725,8 @@ const UAT = () => {
                 : 'Select one asset to start the UAT checklist.'}
         </div>
       )}
+
+        </div>
     </div>
   );
 };

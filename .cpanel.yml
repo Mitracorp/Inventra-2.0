@@ -3,6 +3,6 @@ deployment:
   tasks:
     - /bin/echo "Starting Inventra staging deployment"
     - /usr/bin/env npm --prefix backend install --omit=dev --no-package-lock
-    - /bin/cp -f env.production backend/.env
+    - /bin/cp -f backend/.env.production backend/.env
     - /bin/mkdir -p backend/uploads backend/logs
     - /bin/echo "Inventra staging deployment completed"

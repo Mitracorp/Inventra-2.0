@@ -175,6 +175,8 @@ const PreventiveMaintenance = () => {
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [targetAssetId, setTargetAssetId] = useState('');
+  const [hasAutoOpenedTargetAsset, setHasAutoOpenedTargetAsset] = useState(false);
   const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraPMSortMode') || 'default');
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
@@ -381,12 +383,14 @@ const PreventiveMaintenance = () => {
     const perPage = searchParams.get('perPage');
     const search = searchParams.get('search');
     const onlyWithPM = searchParams.get('onlyWithPM');
+    const assetId = searchParams.get('assetId');
     
     if (categoryFilter) setSelectedCategoryFilter(categoryFilter);
     if (page) setCurrentPage(parseInt(page));
     if (perPage) setItemsPerPage(parseInt(perPage));
     if (search) setSearchQuery(search);
     if (onlyWithPM) setShowOnlyWithPM(onlyWithPM === 'true');
+    if (assetId) setTargetAssetId(String(assetId));
     
     // Restore column filters
     const columnFiltersParam = searchParams.get('columnFilters');
@@ -658,6 +662,7 @@ const PreventiveMaintenance = () => {
     if (itemsPerPage !== 25) params.set('perPage', itemsPerPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (showOnlyWithPM) params.set('onlyWithPM', 'true');
+    if (targetAssetId) params.set('assetId', targetAssetId);
     if (Object.keys(columnFilters).length > 0) {
       params.set('columnFilters', encodeURIComponent(JSON.stringify(columnFilters)));
     }
@@ -1275,25 +1280,37 @@ const PreventiveMaintenance = () => {
   const handleCustomerChange = (e) => {
     const newCustomer = e.target.value;
     setSelectedCustomer(newCustomer);
-    
-    // Update URL parameters
+
+    const params = new URLSearchParams(searchParams);
     if (newCustomer) {
-      setSearchParams({ customer: newCustomer });
+      params.set('customer', newCustomer);
     } else {
-      setSearchParams({});
+      params.delete('customer');
+      params.delete('branch');
+      params.delete('assetId');
+      setTargetAssetId('');
+      setHasAutoOpenedTargetAsset(false);
     }
+    setSearchParams(params, { replace: true });
   };
 
   const handleBranchChange = (e) => {
     const newBranch = e.target.value;
     setSelectedBranch(newBranch);
-    
-    // Update URL parameters (keep customer parameter)
-    if (newBranch && selectedCustomer) {
-      setSearchParams({ customer: selectedCustomer, branch: newBranch });
-    } else if (selectedCustomer) {
-      setSearchParams({ customer: selectedCustomer });
+
+    const params = new URLSearchParams(searchParams);
+    if (selectedCustomer) {
+      params.set('customer', selectedCustomer);
     }
+    if (newBranch) {
+      params.set('branch', newBranch);
+    } else {
+      params.delete('branch');
+      params.delete('assetId');
+      setTargetAssetId('');
+      setHasAutoOpenedTargetAsset(false);
+    }
+    setSearchParams(params, { replace: true });
   };
 
   // PM Form Handlers
@@ -1322,6 +1339,54 @@ const PreventiveMaintenance = () => {
       toast.error('Failed to load checklist items');
     }
   };
+
+  useEffect(() => {
+    if (!targetAssetId || hasAutoOpenedTargetAsset || showPMForm) {
+      return;
+    }
+
+    const openTargetAssetForm = async () => {
+      let targetAsset = pmRecords.find((record) => String(record.Asset_ID) === String(targetAssetId));
+
+      if (!targetAsset) {
+        try {
+          const response = await fetch(`${API_URL}/assets/detail/${targetAssetId}`);
+          if (response.ok) {
+            targetAsset = await response.json();
+          }
+        } catch (error) {
+          console.error('Failed to fetch deep-linked asset detail:', error);
+        }
+      }
+
+      if (!targetAsset) return;
+
+      if (targetAsset.Customer_ID) {
+        setSelectedCustomer(String(targetAsset.Customer_ID));
+      } else if (customers.length > 0) {
+        const matchedCustomer = customers.find((customer) =>
+          String(customer.Customer_Name || '').trim() === String(targetAsset.Customer_Name || '').trim()
+        );
+        if (matchedCustomer?.Customer_ID) {
+          setSelectedCustomer(String(matchedCustomer.Customer_ID));
+        }
+      }
+
+      if (targetAsset.Branch) {
+        setSelectedBranch(String(targetAsset.Branch));
+      }
+
+      const deepLinkSearchHint = targetAsset.Asset_Tag_ID || targetAsset.Asset_Serial_Number || '';
+      if (deepLinkSearchHint) {
+        setSearchQuery(deepLinkSearchHint);
+      }
+
+      setHasAutoOpenedTargetAsset(true);
+      await handleOpenPMForm(targetAsset);
+    };
+
+    openTargetAssetForm();
+  }, [targetAssetId, hasAutoOpenedTargetAsset, showPMForm, pmRecords, customers]);
 
   const handleClosePMForm = () => {
     setShowCancelDialog(true);
@@ -1578,6 +1643,15 @@ const PreventiveMaintenance = () => {
     }
   };
 
+  const deepLinkedAssetRecord = useMemo(() => {
+    if (!targetAssetId) return null;
+    return pmRecords.find((record) => String(record.Asset_ID) === String(targetAssetId)) || null;
+  }, [pmRecords, targetAssetId]);
+
+  const deepLinkedAssetLabel = deepLinkedAssetRecord
+    ? (deepLinkedAssetRecord.Asset_Tag_ID || deepLinkedAssetRecord.Asset_Serial_Number || deepLinkedAssetRecord.Asset_ID)
+    : '';
+
   return (
     <div style={{ padding: '0' }}>
       <div style={{
@@ -1627,6 +1701,24 @@ const PreventiveMaintenance = () => {
       </div>
 
       <div style={{ padding: '0 20px' }}>
+
+      {targetAssetId && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '14px',
+            border: `1px solid ${deepLinkedAssetRecord ? '#86efac' : '#fcd34d'}`,
+            background: deepLinkedAssetRecord ? '#f0fdf4' : '#fffbeb',
+            color: deepLinkedAssetRecord ? '#166534' : '#92400e'
+          }}
+        >
+          <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>
+            {deepLinkedAssetRecord
+              ? `Opened from selected asset: ${deepLinkedAssetLabel}`
+              : 'Opened from asset detail. Matching asset is being prepared from current filters...'}
+          </div>
+        </div>
+      )}
 
       {/* Statistics Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '15px', marginBottom: '15px' }}>

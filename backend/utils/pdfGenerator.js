@@ -3,6 +3,7 @@ const handlebars = require('handlebars');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const PMaintenance = require('../models/PMaintenance');
 const { pool } = require('../config/database');
 
@@ -30,12 +31,38 @@ class PDFGenerator {
      * @returns {string} - Sanitized text safe for filenames
      */
     sanitizeForFilename(text) {
-        if (!text) return 'UNKNOWN';
-        return text
+        if (text === null || text === undefined) return 'UNKNOWN';
+        return String(text)
+            .trim()
             .replace(/\s+/g, '_')        // Replace spaces with underscores
             .replace(/[^a-zA-Z0-9_-]/g, '') // Remove special characters
             .toUpperCase()               // Convert to uppercase
-            .substring(0, 50);           // Limit length to 50 characters
+            .substring(0, 50) || 'UNKNOWN'; // Limit length to 50 characters
+    }
+
+    createDocumentId() {
+        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const randomPart = crypto.randomBytes(4).toString('hex').toUpperCase();
+        return `PM-${datePart}-${randomPart}`;
+    }
+
+    generateVerificationCode(payload = {}) {
+        const secret = process.env.PM_VERIFICATION_SECRET || process.env.JWT_SECRET || 'inventra-pm-secret';
+        const source = JSON.stringify({
+            documentId: payload.documentId,
+            pmId: payload.pmId,
+            assetId: payload.assetId,
+            serial: payload.serialNumber,
+            recipient: payload.recipient,
+            generatedAtIso: payload.generatedAtIso
+        });
+
+        return crypto
+            .createHash('sha256')
+            .update(`${source}:${secret}`)
+            .digest('hex')
+            .slice(0, 16)
+            .toUpperCase();
     }
 
     /**
@@ -43,20 +70,29 @@ class PDFGenerator {
      * @returns {string} - Base64 encoded logo or empty string if logo not found
      */
     getLogoBase64() {
-        try {
-            const logoPath = path.join(__dirname, '../../frontend/public/logo.png');
-            if (fsSync.existsSync(logoPath)) {
-                const logoBuffer = fsSync.readFileSync(logoPath);
-                const logoBase64 = logoBuffer.toString('base64');
-                return `data:image/png;base64,${logoBase64}`;
-            } else {
-                console.warn('Logo file not found at:', logoPath);
-                return '';
+        const candidatePaths = [
+            process.env.MITRACORP_LOGO_PATH,
+            path.join(__dirname, '../../frontend/src/assets/MitracorpLogo_full.png'),
+            path.join(__dirname, '../../frontend/public/logo.png')
+        ].filter(Boolean);
+
+        for (const logoPath of candidatePaths) {
+            try {
+                if (fsSync.existsSync(logoPath)) {
+                    const logoBuffer = fsSync.readFileSync(logoPath);
+                    return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+                }
+            } catch (error) {
+                // Try next path.
             }
-        } catch (error) {
-            console.error('Error reading logo file:', error);
-            return '';
         }
+
+        return '';
+    }
+
+    isModernPMFilename(filePath) {
+        const fileName = path.basename(String(filePath || ''));
+        return /^PM_PM-[A-Z0-9-]+_ASSET_[A-Z0-9_-]+_PMNO_[12]\.pdf$/i.test(fileName);
     }
 
     /**
@@ -139,15 +175,30 @@ class PDFGenerator {
                 throw new Error(`PM record not found for PM_ID: ${pmId}`);
             }
 
-            // 2. Get PM sequence number for this asset
+            // 2. Get PM sequence number for this asset (PM#1 / PM#2 cycle)
             const pmSequenceNumber = await this.getPMSequenceNumber(pmId, pmData.Asset_ID);
             console.log(`This is PM #${pmSequenceNumber} for Asset_ID ${pmData.Asset_ID}`);
 
             // 3. Fetch checklist results
             const checklistResults = await this.getChecklistResults(pmId);
             
+            const generatedAtIso = new Date().toISOString();
+            const documentId = this.createDocumentId();
+            const verificationCode = this.generateVerificationCode({
+                documentId,
+                pmId: pmData.PM_ID,
+                assetId: pmData.Asset_ID,
+                serialNumber: pmData.Asset_Serial_Number,
+                recipient: pmData.Recipient_Name,
+                generatedAtIso
+            });
+
             // 4. Format data for template
-            const templateData = this.formatDataForTemplate(pmData, checklistResults, pmSequenceNumber);
+            const templateData = this.formatDataForTemplate(pmData, checklistResults, pmSequenceNumber, {
+                documentId,
+                verificationCode,
+                generatedAtIso
+            });
 
             // 4. Load and compile HTML template
             console.log('Loading HTML template...');
@@ -157,13 +208,11 @@ class PDFGenerator {
 
             // 5. Generate filename using PM sequence number (deterministic, no timestamp)
             // Use Customer_Name if available, otherwise use 'UNKNOWN'
-            const customerName = pmData.Customer_Name ? this.sanitizeForFilename(pmData.Customer_Name) : 'UNKNOWN';
-            const pmNumber = pmSequenceNumber || pmData.PM_ID || 'UNKNOWN';
-            const filename = `PM_Report_${customerName}_${pmData.Asset_Serial_Number}_${pmNumber}.pdf`;
+            const safeDocumentId = this.sanitizeForFilename(documentId || 'PM');
+            const safeAssetId = this.sanitizeForFilename(pmData.Asset_ID || 'ASSET');
+            const filename = `PM_${safeDocumentId}_ASSET_${safeAssetId}_PMNO_${pmSequenceNumber}.pdf`;
             const filepath = path.join(this.outputDir, filename);
-            
-            console.log('Customer_Name from DB:', pmData.Customer_Name);
-            console.log('Sanitized customer name:', customerName);
+
             console.log('Generated filename:', filename);
 
             // 5. Generate PDF using html-pdf
@@ -309,8 +358,10 @@ class PDFGenerator {
             `;
             
             const [result] = await pool.execute(query, [assetId, pmId, pmId, pmId]);
-            
-            return result[0].pm_count || 1;
+
+            const absoluteSequence = Number(result?.[0]?.pm_count) || 1;
+            // Business rule: PM forms cycle between PM#1 and PM#2 only.
+            return ((absoluteSequence - 1) % 2) + 1;
         } catch (error) {
             console.error('Error getting PM sequence number:', error);
             return 1;
@@ -354,7 +405,7 @@ class PDFGenerator {
     /**
      * Format data for Handlebars template
      */
-    formatDataForTemplate(pmData, checklistResults, pmSequenceNumber = 1) {
+    formatDataForTemplate(pmData, checklistResults, pmSequenceNumber = 1, meta = {}) {
         // Format date
         const pmDate = new Date(pmData.PM_Date);
         const formattedDate = pmDate.toLocaleDateString('en-GB', {
@@ -370,6 +421,15 @@ class PDFGenerator {
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
+        });
+
+        const generatedTimestamp = new Date(meta.generatedAtIso || Date.now()).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         });
 
         // Format status for CSS class
@@ -455,6 +515,14 @@ class PDFGenerator {
             }
         }
 
+        const peripherals = pmData.peripherals || [];
+        const peripheralAssetsText = peripherals.length
+            ? peripherals.map((item) => item.Peripheral_Type_Name || '-').join(', ')
+            : '-';
+        const peripheralIdNoText = peripherals.length
+            ? peripherals.map((item) => `${item.Peripheral_Type_Name || 'Accessory'}: ${item.Serial_Code || '-'}`).join('; ')
+            : '-';
+
         return {
             // PM Information
             PM_ID: pmData.PM_ID,
@@ -470,7 +538,7 @@ class PDFGenerator {
             Category: pmData.Category,
             Model: pmData.Model || '-',
             Asset_Status: pmData.Asset_Status || 'Active',
-            Customer_Name: pmData.Customer_Name || 'N/A',
+            Customer_Name: pmData.Company_Full_Name || pmData.Customer_Name || 'N/A',
             Project_Title: pmData.Project_Title || '-',
 
             // Recipient Information
@@ -494,17 +562,26 @@ class PDFGenerator {
             // Logo as Base64
             Logo_Base64: logoBase64,
             Project_Logo_Base64: projectLogoBase64,
+            Company_Full_Name: pmData.Company_Full_Name || pmData.Customer_Name || '-',
 
             // Signature as Base64
             Signature_Base64: signatureBase64,
             Technician_Signature_Base64: technicianSignatureBase64,
             Signed_At_Formatted: signedAtFormatted,
 
+            // Compliance metadata
+            Document_ID: meta.documentId || this.createDocumentId(),
+            Generated_Timestamp: generatedTimestamp,
+            Verification_Code: meta.verificationCode || '-',
+            Declaration_Text: 'This is a computer-generated document and does not require a physical signature.',
+
             // Checklist Results
             checklist_results: checklistResults,
             
             // Peripherals/Accessories
-            peripherals: pmData.peripherals || [],
+            peripherals,
+            Peripheral_Assets_Text: peripheralAssetsText,
+            Peripheral_ID_No_Text: peripheralIdNoText,
 
             // Footer
             Generated_Date: generatedDate
@@ -526,8 +603,23 @@ class PDFGenerator {
                 throw new Error(`Asset not found for Asset_ID: ${assetId}`);
             }
 
+            const generatedAtIso = new Date().toISOString();
+            const documentId = this.createDocumentId();
+            const verificationCode = this.generateVerificationCode({
+                documentId,
+                pmId: null,
+                assetId: assetData.Asset_ID,
+                serialNumber: assetData.Asset_Serial_Number,
+                recipient: assetData.Recipient_Name,
+                generatedAtIso
+            });
+
             // 2. Format data for blank template
-            const templateData = this.formatBlankFormData(assetData);
+            const templateData = this.formatBlankFormData(assetData, {
+                documentId,
+                verificationCode,
+                generatedAtIso
+            });
 
             // 3. Load and compile HTML template
             console.log('Loading HTML template...');
@@ -536,9 +628,9 @@ class PDFGenerator {
             const html = template(templateData);
 
             // 4. Generate filename
-            const customerName = assetData.Customer_Name ? this.sanitizeForFilename(assetData.Customer_Name) : 'UNKNOWN';
-            const timestamp = Date.now();
-            const filename = `PM_Blank_Asset${assetId}_${customerName}_${assetData.Asset_Serial_Number}_${timestamp}.pdf`;
+            const safeDocumentId = this.sanitizeForFilename(documentId || 'PM');
+            const safeAssetId = this.sanitizeForFilename(assetData.Asset_ID || assetId || 'ASSET');
+            const filename = `PM_${safeDocumentId}_ASSET_${safeAssetId}_PMNO_1.pdf`;
             const filepath = path.join(this.outputDir, filename);
             
             console.log('Generated blank form filename:', filename);
@@ -598,7 +690,7 @@ class PDFGenerator {
     /**
      * Format asset data for blank PM template
      */
-    formatBlankFormData(assetData) {
+    formatBlankFormData(assetData, meta = {}) {
         // Current date for footer
         const generatedDate = new Date().toLocaleDateString('en-GB', {
             day: '2-digit',
@@ -606,6 +698,15 @@ class PDFGenerator {
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
+        });
+
+        const generatedTimestamp = new Date(meta.generatedAtIso || Date.now()).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         });
 
         // Convert logos to base64
@@ -640,6 +741,7 @@ class PDFGenerator {
             // Maintenance & Agency Details (same as above for blank forms)
             Recipient_Name_Details: assetData.Recipient_Name || '-',
             Department_Details: assetData.Department || '-',
+            Company_Full_Name: assetData.Company_Full_Name || assetData.Customer_Name || '-',
 
             // No technician info for blank form
             Created_By_Name: null,
@@ -648,11 +750,23 @@ class PDFGenerator {
             Logo_Base64: logoBase64,
             Project_Logo_Base64: projectLogoBase64,
 
+            // Compliance metadata
+            Document_ID: meta.documentId || this.createDocumentId(),
+            Generated_Timestamp: generatedTimestamp,
+            Verification_Code: meta.verificationCode || '-',
+            Declaration_Text: 'This is a computer-generated document and does not require a physical signature.',
+
             // Checklist Results - all empty
             checklist_results: assetData.checklist_results,
             
             // Peripherals/Accessories
             peripherals: assetData.peripherals || [],
+            Peripheral_Assets_Text: (assetData.peripherals || []).length
+                ? assetData.peripherals.map((item) => item.Peripheral_Type_Name || '-').join(', ')
+                : '-',
+            Peripheral_ID_No_Text: (assetData.peripherals || []).length
+                ? assetData.peripherals.map((item) => `${item.Peripheral_Type_Name || 'Accessory'}: ${item.Serial_Code || '-'}`).join('; ')
+                : '-',
 
             // Footer
             Generated_Date: generatedDate
@@ -688,6 +802,11 @@ class PDFGenerator {
             
             if (rows.length > 0 && rows[0].file_path) {
                 const filepath = rows[0].file_path;
+
+                if (!this.isModernPMFilename(filepath)) {
+                    console.log(`⚠️ Legacy PM filename detected, forcing regeneration: ${filepath}`);
+                    return { exists: false, filepath: null };
+                }
                 
                 // Build absolute path from relative path stored in database
                 const absolutePath = path.join(__dirname, '../', filepath);
@@ -733,12 +852,13 @@ class PDFGenerator {
                 if (pmData.file_path) {
                     console.log(`    🔍 Checking cached PDF: ${pmData.file_path}`);
                     const fileExists = await this.checkFileExists(pmData.file_path);
+                    const isModernName = this.isModernPMFilename(pmData.file_path);
                     
-                    if (fileExists) {
+                    if (fileExists && isModernName) {
                         console.log(`    ✅ Using existing cached PDF`);
                         pdfPath = pmData.file_path;
                     } else {
-                        console.log(`    ⚠️  Cached file missing, regenerating...`);
+                        console.log(`    ⚠️  Cached file missing or legacy format, regenerating...`);
                     }
                 }
 

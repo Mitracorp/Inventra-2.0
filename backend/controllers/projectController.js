@@ -890,6 +890,7 @@ exports.getProjectLogoFile = async (req, res) => {
       });
     }
 
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.sendFile(absolutePath);
   } catch (error) {
     return res.status(500).json({

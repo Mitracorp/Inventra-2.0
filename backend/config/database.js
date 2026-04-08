@@ -1,6 +1,19 @@
 const mysql = require('mysql2/promise');
 const logger = require('../utils/logger');
-require('dotenv').config({ path: __dirname + '/../.env' });
+const fs = require('fs');
+const path = require('path');
+
+const envCandidates = [
+  path.join(__dirname, '../.env'),
+  path.join(__dirname, '../.env.production')
+];
+
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+if (envPath) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 
 // Database connection configuration
 const dbConfig = {

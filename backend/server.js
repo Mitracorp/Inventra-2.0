@@ -7,7 +7,19 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-require('dotenv').config({ path: __dirname + '/.env' });
+const fs = require('fs');
+
+const envCandidates = [
+  path.join(__dirname, '.env'),
+  path.join(__dirname, '.env.production')
+];
+
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+if (envPath) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 console.log('✅ Environment loaded');
 
 const logger = require('./utils/logger');
@@ -41,7 +53,8 @@ console.log(`📍 Port set to: ${PORT}`);
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for React app
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(compression());
 
@@ -106,8 +119,12 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files for uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static files for uploads (logos/signatures/PDFs accessed from frontend origin)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Serve React static files in production
 if (process.env.NODE_ENV === 'production') {

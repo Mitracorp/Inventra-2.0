@@ -18,10 +18,21 @@ backend/logs/
 
 # Ignore generated PM report PDFs (each user generates their own)
 backend/uploads/pm-reports/*.pdf
+backend/uploads/bulkpm-reports/*.pdf
+
+# Ignore generated UAT report artifacts
+backend/uploads/uat-reports/*.pdf
+backend/uploads/uat-reports/verification-registry.json
 
 # Ignore signed PM reports
 backend/uploads/signed-pm-reports/*
 !backend/uploads/signed-pm-reports/.gitkeep
+
+# Ignore generated project logo uploads (keep curated static logos)
+backend/uploads/project-logo/project_*.png
+backend/uploads/project-logo/project_*.jpg
+backend/uploads/project-logo/project_*.jpeg
+backend/uploads/project-logo/project_*.webp
 
 # Ignore user signature images
 backend/uploads/signature/*.png
