@@ -58,7 +58,13 @@ body {
   top: 0;
   z-index: 1000;
   overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar.mobile {
@@ -167,19 +173,20 @@ body {
 
 .logout-action-btn {
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
+  padding: 10px 14px !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #e74c3c, #c0392b);
   color: #fff;
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.35);
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 

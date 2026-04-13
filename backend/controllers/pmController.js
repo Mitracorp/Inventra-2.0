@@ -5,8 +5,72 @@ const pdfGenerator = require('../utils/pdfGenerator');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const archiver = require('archiver');
 const { pool } = require('../config/database');
 const { logPMChange } = require('../utils/auditLogger');
+
+const BULK_PDF_MAX_RECORDS = 80;
+
+const resolveAbsoluteFilePath = (filePath) => {
+  if (!filePath) return null;
+  return path.isAbsolute(filePath)
+    ? filePath
+    : path.join(__dirname, '..', filePath);
+};
+
+const ensurePMPdfPath = async (pmRecord) => {
+  if (pmRecord?.file_path && await pdfGenerator.checkFileExists(pmRecord.file_path)) {
+    return {
+      absolutePath: resolveAbsoluteFilePath(pmRecord.file_path),
+      filename: path.basename(pmRecord.file_path)
+    };
+  }
+
+  const generated = await pdfGenerator.generatePMReport(pmRecord.PM_ID);
+  if (!generated?.success || !generated.filepath) {
+    throw new Error(`Failed to generate PM PDF for PM_ID ${pmRecord.PM_ID}`);
+  }
+
+  await pdfGenerator.updateFilePath(pmRecord.PM_ID, generated.filepath);
+  return {
+    absolutePath: resolveAbsoluteFilePath(generated.filepath),
+    filename: generated.filename || path.basename(generated.filepath)
+  };
+};
+
+const streamBulkZip = async (res, pmRecords) => {
+  const filename = `PM-Forms-Bulk-${Date.now()}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  archive.on('warning', (err) => {
+    logger.warn('ZIP warning during bulk download:', err.message);
+  });
+
+  archive.on('error', (err) => {
+    logger.error('ZIP error during bulk download:', err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Failed to create ZIP archive',
+        message: err.message
+      });
+    }
+  });
+
+  archive.pipe(res);
+
+  for (let index = 0; index < pmRecords.length; index += 1) {
+    const pmRecord = pmRecords[index];
+    const { absolutePath, filename: sourceName } = await ensurePMPdfPath(pmRecord);
+    const entryName = `${String(index + 1).padStart(3, '0')}_PM_${pmRecord.PM_ID}_${sourceName}`;
+    archive.file(absolutePath, { name: entryName });
+  }
+
+  await archive.finalize();
+};
 
 /**
  * Get all PM records
@@ -703,6 +767,12 @@ const bulkDownloadPM = async (req, res, next) => {
     }
 
     logger.info(`✅ Found ${validPMRecords.length} PM records and ${validBlankAssets.length} blank forms`);
+
+    if (validPMRecords.length > BULK_PDF_MAX_RECORDS && validBlankAssets.length === 0) {
+      logger.info(`📦 Large bulk export detected (${validPMRecords.length} PM records). Switching to ZIP export.`);
+      await streamBulkZip(res, validPMRecords);
+      return;
+    }
 
     // Generate combined PDF using pdfGenerator
     logger.info('Starting bulk PDF generation...');

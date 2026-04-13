@@ -14,6 +14,7 @@ import PMDetail from './pages/PMDetail';
 import PMImport from './pages/PMImport';
 import PMSchedule from './pages/PMSchedule';
 import PMOverviewPage from './pages/PMOverviewPage';
+import PMReports from './pages/PMReports';
 import AccountSettings from './pages/AccountSettings';
 import AuditLog from './pages/AuditLog';
 import SolutionPrincipal from './pages/SolutionPrincipal';
@@ -131,6 +132,7 @@ function App() {
               <Route path="/pm-schedule" element={<PMSchedule />} />
               <Route path="/maintenance/overview/:type" element={<PMOverviewPage />} />
               <Route path="/pm-import" element={<PMImport />} />
+              <Route path="/pm-reports" element={<PMReports />} />
               <Route path="/maintenance/detail/:pmId" element={<PMDetail />} />
               <Route path="/models" element={<Models />} />
               <Route path="/models/specs" element={<ModelSpecifications />} />
