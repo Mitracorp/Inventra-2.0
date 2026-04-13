@@ -581,7 +581,7 @@ const AccountSettings = () => {
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
       localStorage.setItem('userInfo', JSON.stringify({ ...userInfo, ...(data.data || {}) }));
 
-      setUpdateMessage({ type: 'success', text: 'Staff signature saved. PM and UAT forms will use it automatically.' });
+      setUpdateMessage({ type: 'success', text: 'Staff signature saved. PM forms will use it automatically.' });
       setHasProfileSignature(false);
       setProfileSignature('');
     } catch (error) {
@@ -885,7 +885,7 @@ const AccountSettings = () => {
 
                   <div className="form-group" style={{ marginTop: '18px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <PenTool size={16} /> Staff Signature (for PM/UAT auto-submit)
+                      <PenTool size={16} /> Staff Signature (for PM auto-submit)
                     </label>
 
                     {profileData.signPath && (

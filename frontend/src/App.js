@@ -9,7 +9,6 @@ import AddProject from './pages/AddProject';
 import EditProject from './pages/EditProject';
 import Assets from './pages/Assets';
 import AssetDetail from './pages/AssetDetail';
-import UAT from './pages/UAT';
 import PreventiveMaintenance from './pages/PreventiveMaintenance';
 import PMDetail from './pages/PMDetail';
 import PMImport from './pages/PMImport';
@@ -125,7 +124,6 @@ function App() {
               <Route path="/projects/edit/:id" element={<EditProject />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/assets" element={<Assets onDelete={deleteAsset} />} />
-              <Route path="/uat" element={<UAT />} />
               <Route path="/assets/import" element={<CSVImport />} />
               <Route path="/asset-detail/:assetId" element={<AssetDetail />} />
               <Route path="/maintenance" element={<PreventiveMaintenance assets={assets} />} />

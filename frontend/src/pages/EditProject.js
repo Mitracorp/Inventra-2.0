@@ -691,7 +691,7 @@ const EditProject = () => {
                     color: '#374151',
                     fontSize: '14px'
                   }}>
-                    Full Company Name (for UAT digital stamp)
+                    Full Company Name
                   </label>
                   <input
                     type="text"
@@ -901,7 +901,7 @@ const EditProject = () => {
             </div>
 
             <p style={{ marginTop: 0, marginBottom: '12px', color: '#4b5563', fontSize: '14px' }}>
-              Upload the client/company logo to appear on UAT and PM forms.
+              Upload the client/company logo to appear on PM forms.
             </p>
 
             {projectLogoPath ? (

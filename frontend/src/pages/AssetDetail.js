@@ -16,9 +16,7 @@ const AssetDetail = () => {
   const navigate = useNavigate();
   const [assetData, setAssetData] = useState(null);
   const [pmRecords, setPmRecords] = useState([]);
-  const [uatSummary, setUatSummary] = useState(null);
   const [loadingPM, setLoadingPM] = useState(false);
-  const [loadingUAT, setLoadingUAT] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -31,7 +29,6 @@ const AssetDetail = () => {
   useEffect(() => {
     fetchAssetDetail();
     fetchPMRecords();
-    fetchUATSummary();
 
     // Handle responsive layout
     const handleResize = () => {
@@ -105,39 +102,6 @@ const AssetDetail = () => {
     }
   };
 
-  const fetchUATSummary = async () => {
-    try {
-      setLoadingUAT(true);
-      const token = localStorage.getItem('authToken');
-
-      if (!token) {
-        setUatSummary(null);
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/uat/history-summary?assetId=${encodeURIComponent(String(assetId))}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        setUatSummary(null);
-        return;
-      }
-
-      const payload = await response.json();
-      const entries = Array.isArray(payload?.data) ? payload.data : [];
-      const matching = entries.find((entry) => String(entry.assetId) === String(assetId));
-      setUatSummary(matching || null);
-    } catch (err) {
-      console.error('Error fetching UAT summary:', err);
-      setUatSummary(null);
-    } finally {
-      setLoadingUAT(false);
-    }
-  };
-
   const handleStartPMNow = () => {
     if (!assetData) return;
 
@@ -149,17 +113,6 @@ const AssetDetail = () => {
     if (searchHint) query.set('search', searchHint);
 
     navigate(`/maintenance?${query.toString()}`);
-  };
-
-  const handleStartUATNow = () => {
-    if (!assetData) return;
-
-    const query = new URLSearchParams();
-    if (assetData.Customer_Name) query.set('customer', assetData.Customer_Name);
-    if (assetData.Branch) query.set('branch', assetData.Branch);
-    if (assetData.Asset_ID) query.set('assetId', String(assetData.Asset_ID));
-
-    navigate(`/uat?${query.toString()}`);
   };
 
   const formatDate = (dateString) => {
@@ -378,9 +331,7 @@ const AssetDetail = () => {
 
   const pmCompletedCount = pmRecords.filter((pm) => String(pm.Status || '').toLowerCase() === 'completed').length;
   const hasPM = pmRecords.length > 0;
-  const hasUAT = Number(uatSummary?.count || 0) > 0;
   const latestPMDate = hasPM ? pmRecords[pmRecords.length - 1]?.PM_Date : null;
-  const latestUATDate = uatSummary?.latestGeneratedAt || null;
 
   return (
     <div className="page-container">
@@ -961,25 +912,6 @@ const AssetDetail = () => {
               <Wrench size={16} />
               PM Now
             </button>
-            <button
-              type="button"
-              onClick={handleStartUATNow}
-              style={{
-                background: '#0f766e',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '9px 14px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <FileText size={16} />
-              UAT Now
-            </button>
           </div>
         </div>
 
@@ -1002,27 +934,6 @@ const AssetDetail = () => {
               <div>Total records: <strong>{pmRecords.length}</strong></div>
               <div>Completed: <strong>{pmCompletedCount}</strong></div>
               <div>Latest PM: <strong>{latestPMDate ? formatDate(latestPMDate) : 'N/A'}</strong></div>
-            </div>
-          </div>
-
-          <div style={{ border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px', background: '#eff6ff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontWeight: 700, color: '#1d4ed8' }}>UAT Status</span>
-              <span style={{
-                background: hasUAT ? '#2563eb' : '#9ca3af',
-                color: 'white',
-                borderRadius: '999px',
-                padding: '2px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 700
-              }}>
-                {loadingUAT ? 'LOADING' : (hasUAT ? 'DONE' : 'PENDING')}
-              </span>
-            </div>
-            <div style={{ color: '#1e3a8a', fontSize: '0.92rem', lineHeight: 1.7 }}>
-              <div>Total forms: <strong>{Number(uatSummary?.count || 0)}</strong></div>
-              <div>Latest UAT: <strong>{latestUATDate ? formatDate(latestUATDate) : 'N/A'}</strong></div>
-              <div>Latest recipient: <strong>{uatSummary?.latestRecipientName || 'N/A'}</strong></div>
             </div>
           </div>
         </div>
