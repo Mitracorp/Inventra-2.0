@@ -12,6 +12,9 @@ frontend/.env
 frontend/.env.production
 frontend/.env.development
 
+# Frontend build output (generated during deploy/CI)
+frontend/build/
+
 # Ignore backend runtime logs
 backend/logs/
 *.log
