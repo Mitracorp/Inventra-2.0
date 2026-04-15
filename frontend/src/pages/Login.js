@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { User, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { PublicClientApplication } from '@azure/msal-browser';
@@ -26,6 +26,84 @@ const Login = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [msLoading, setMsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const exchangeMicrosoftToken = useCallback(async (idToken) => {
+    const candidateApiUrls = Array.from(new Set([
+      process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1',
+      'http://127.0.0.1:5000/api/v1',
+      'http://localhost:5000/api/v1'
+    ]));
+
+    let response = null;
+    let lastError = null;
+
+    for (const apiUrl of candidateApiUrls) {
+      try {
+        response = await fetch(`${apiUrl}/auth/microsoft-login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ idToken })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (!data.success) {
+            throw new Error(data.message || 'Microsoft authentication failed');
+          }
+
+          localStorage.setItem('authToken', data.data.token);
+          localStorage.setItem('userInfo', JSON.stringify(data.data.user));
+          onLogin();
+          return true;
+        }
+
+        lastError = `HTTP ${response.status}`;
+      } catch (error) {
+        lastError = error.message;
+        continue;
+      }
+    }
+
+    throw new Error(lastError || 'Unable to reach Microsoft login endpoint');
+  }, [onLogin]);
+
+  useEffect(() => {
+    const handleRedirectLogin = async () => {
+      if (!msalInstance) {
+        return;
+      }
+
+      const hasAuthCode = window.location.hash.includes('code=');
+      const loginInProgress = sessionStorage.getItem('msalLoginInProgress') === 'true';
+
+      if (!hasAuthCode && !loginInProgress) {
+        return;
+      }
+
+      try {
+        console.log('🔄 Login page handling Microsoft redirect...');
+        await msalInstance.initialize();
+        const loginResult = await msalInstance.handleRedirectPromise();
+        sessionStorage.removeItem('msalLoginInProgress');
+
+        if (!loginResult?.idToken) {
+          return;
+        }
+
+        await exchangeMicrosoftToken(loginResult.idToken);
+      } catch (error) {
+        sessionStorage.removeItem('msalLoginInProgress');
+        console.error('❌ Login redirect handling failed:', error);
+        setError(error.message || 'Microsoft login failed. Please try again.');
+      } finally {
+        setMsLoading(false);
+      }
+    };
+
+    handleRedirectLogin();
+  }, []);
 
   const candidateApiUrls = Array.from(new Set([
     process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1',
@@ -99,50 +177,17 @@ const Login = ({ onLogin }) => {
 
     try {
       await msalInstance.initialize();
-      const loginResult = await msalInstance.loginPopup({
+      sessionStorage.setItem('msalLoginInProgress', 'true');
+      
+      // Use loginRedirect instead of loginPopup to avoid COOP header issues on localhost
+      await msalInstance.loginRedirect({
         scopes: ['openid', 'profile', 'email', 'User.Read'],
         prompt: 'select_account'
       });
-
-      const idToken = loginResult?.idToken;
-      if (!idToken) {
-        throw new Error('Microsoft login did not return an ID token');
-      }
-
-      let response = null;
-      let lastNetworkError = null;
-
-      for (const apiUrl of candidateApiUrls) {
-        try {
-          response = await fetch(`${apiUrl}/auth/microsoft-login`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ idToken })
-          });
-          break;
-        } catch (networkError) {
-          lastNetworkError = networkError;
-        }
-      }
-
-      if (!response) {
-        throw lastNetworkError || new Error('Unable to reach Microsoft login endpoint');
-      }
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Microsoft authentication failed');
-      }
-
-      localStorage.setItem('authToken', data.data.token);
-      localStorage.setItem('userInfo', JSON.stringify(data.data.user));
-      onLogin();
     } catch (err) {
+      sessionStorage.removeItem('msalLoginInProgress');
       console.error('Microsoft login error:', err);
       setError(err.message || 'Microsoft login failed. Please try again.');
-    } finally {
       setMsLoading(false);
     }
   };
@@ -172,11 +217,14 @@ const Login = ({ onLogin }) => {
         )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>
+            <label htmlFor="login-username">
               <User size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
               Username
             </label>
             <input
+              id="login-username"
+              name="username"
+              autoComplete="username"
               type="text"
               value={credentials.username}
               onChange={(e) => setCredentials({...credentials, username: e.target.value})}
@@ -186,12 +234,15 @@ const Login = ({ onLogin }) => {
             />
           </div>
           <div className="form-group">
-            <label>
+            <label htmlFor="login-password">
               <Lock size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
               Password
             </label>
             <div style={{ position: 'relative' }}>
               <input
+                id="login-password"
+                name="password"
+                autoComplete="current-password"
                 type={showPassword ? "text" : "password"}
                 value={credentials.password}
                 onChange={(e) => setCredentials({...credentials, password: e.target.value})}
