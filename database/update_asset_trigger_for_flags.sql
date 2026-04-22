@@ -3,7 +3,7 @@
 -- Run this in phpMyAdmin or your database management tool
 -- =====================================================
 
-USE ivmscom_Inventra;
+USE ivmscom_Inventra2;
 
 -- Drop existing trigger
 DROP TRIGGER IF EXISTS trg_asset_update;
