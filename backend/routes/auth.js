@@ -165,6 +165,14 @@ router.post('/login',
   login
 );
 
+// Helpful response when this endpoint is opened directly in a browser.
+router.get('/login', (req, res) => {
+  return res.status(405).json({
+    success: false,
+    message: 'Use POST /auth/login with username and password in JSON body'
+  });
+});
+
 router.post('/microsoft-login',
   microsoftLoginValidationRules,
   handleValidationErrors,

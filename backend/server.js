@@ -138,6 +138,8 @@ if (process.env.NODE_ENV === 'production') {
 
 // API routes
 app.use('/api/v1', routes);
+// Backward-compatibility for clients still using /api/* without version prefix
+app.use('/api', routes);
 
 // Debug endpoint - Check which database is being used
 app.get('/api/debug/env', (req, res) => {
