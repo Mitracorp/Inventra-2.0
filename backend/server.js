@@ -10,8 +10,9 @@ const path = require('path');
 const fs = require('fs');
 
 const envCandidates = [
-  path.join(__dirname, '.env'),
-  path.join(__dirname, '.env.production')
+  path.join(__dirname, '.env.local'),
+  path.join(__dirname, `.env.${process.env.NODE_ENV || 'development'}`),
+  path.join(__dirname, '.env')
 ];
 
 const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));

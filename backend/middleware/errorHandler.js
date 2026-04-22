@@ -35,6 +35,11 @@ const errorHandler = (err, req, res, next) => {
   // MySQL errors
   if (err.code) {
     switch (err.code) {
+      case 'ECONNREFUSED':
+      case 'ENOTFOUND':
+      case 'ETIMEDOUT':
+        error = { message: 'Database connection failed', statusCode: 500 };
+        break;
       case 'ER_DUP_ENTRY':
         error = { message: 'Duplicate entry', statusCode: 400 };
         break;
