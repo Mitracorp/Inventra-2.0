@@ -140,6 +140,8 @@ if (process.env.NODE_ENV === 'production') {
 app.use('/api/v1', routes);
 // Backward-compatibility for clients still using /api/* without version prefix
 app.use('/api', routes);
+// cPanel Passenger app URL compatibility when mounted at /api (prefix may be stripped)
+app.use('/v1', routes);
 
 // Debug endpoint - Check which database is being used
 app.get('/api/debug/env', (req, res) => {
@@ -170,6 +172,16 @@ app.get('/api/debug/env', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Inventra API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// cPanel Passenger app URL compatibility when mounted at /api
+app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Inventra API is running',
