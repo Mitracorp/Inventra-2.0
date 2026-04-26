@@ -4,7 +4,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Cpu, Search, Plus, ArrowLeft, AlertCircle, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import Pagination from '../components/Pagination';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = process.env.REACT_APP_API_URL || '/api/v1';
 
 // Loading skeleton component
 const SkeletonCard = () => (
