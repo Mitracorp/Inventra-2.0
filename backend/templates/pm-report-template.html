@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preventive Maintenance Report</title>
     <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,43 +18,44 @@
 
         body {
             font-family: Arial, sans-serif;
-            font-size: 9pt;
-            line-height: 1.2;
+            font-size: 7pt;
+            line-height: 1;
             color: #000;
-            padding: 3px;
+            padding: 0;
             filter: grayscale(100%);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
         .section-box {
             border: 2px solid #000;
-            margin-bottom: 2px;
-            padding: 3px;
+            margin-bottom: 1px;
+            padding: 1px;
         }
 
         .section-title {
-            font-size: 9pt;
+            font-size: 7.2pt;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
             padding-bottom: 1px;
             border-bottom: 1px solid #000;
         }
 
         .info-table td {
-            padding: 4px 6px;
-            font-size: 9pt;
+            padding: 1px 3px;
+            font-size: 6.8pt;
             border: 1px solid #ccc;
         }
 
         .info-label {
             font-weight: bold;
-            width: 75px;
+            width: 66px;
             background-color: #f0f0f0;
-            font-size: 9pt;
+            font-size: 6.8pt;
         }
 
         .checklist-table {
@@ -59,16 +65,16 @@
         .checklist-table th {
             background-color: #333;
             color: #fff;
-            padding: 4px 6px;
-            font-size: 9pt;
+            padding: 1px 3px;
+            font-size: 6.4pt;
             text-align: center;
             border: 1px solid #000;
         }
 
         .checklist-table td {
-            padding: 4px 6px;
+            padding: 1px 3px;
             border: 1px solid #333;
-            font-size: 9pt;
+            font-size: 6.4pt;
             text-align: center;
         }
 
@@ -77,16 +83,16 @@
         }
 
         .signature-table {
-            margin-top: 4px;
+            margin-top: 1px;
         }
 
         .signature-table td {
-            padding: 3px;
+            padding: 2px;
             border: 2px solid #000;
         }
 
         .signature-title {
-            font-size: 9pt;
+            font-size: 7.2pt;
             font-weight: bold;
             margin-bottom: 2px;
             padding-bottom: 1px;
@@ -95,7 +101,7 @@
 
         .signature-line {
             margin: 2px 0;
-            font-size: 9pt;
+            font-size: 6.8pt;
         }
 
         .signature-line strong {
@@ -106,21 +112,21 @@
         .signature-underline {
             display: inline-block;
             border-bottom: 1px solid #000;
-            width: 150px;
-            height: 12px;
+            width: 120px;
+            height: 8px;
         }
         
         .signature-underline-large {
             display: inline-block;
             border-bottom: 1px solid #000;
-            width: 200px;
-            height: 40px;
+            width: 140px;
+            height: 20px;
         }
 
         .header-wrap {
             display: table;
             width: 100%;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .header-cell {
@@ -135,8 +141,8 @@
         }
 
         .header-logo {
-            max-height: 46px;
-            max-width: 76px;
+            max-height: 36px;
+            max-width: 62px;
             width: auto;
             height: auto;
         }
@@ -144,7 +150,7 @@
         .header-center-box {
             background-color: #333333;
             border: 2px solid #000;
-            padding: 3px;
+            padding: 1px;
             color: #fff;
             text-align: center;
             position: relative;
@@ -152,65 +158,69 @@
 
         .pm-badge {
             position: absolute;
-            right: 6px;
-            top: 4px;
+            right: 5px;
+            top: 3px;
             background-color: #555555;
             color: #ffffff;
             padding: 2px 4px;
             border: 1px solid #ffffff;
-            font-size: 9pt;
+            font-size: 6.8pt;
             font-weight: bold;
         }
 
         .footer-text {
             text-align: center;
-            margin-top: 6px;
+            margin-top: 2px;
             padding-top: 2px;
             border-top: 1px solid #000;
-            font-size: 8pt;
+            font-size: 6.4pt;
         }
 
         .declaration-box {
             border: 1px solid #000;
             background: #f3f4f6;
-            padding: 4px 6px;
-            margin-bottom: 4px;
-            font-size: 8.5pt;
+            padding: 1px 3px;
+            margin-bottom: 2px;
+            font-size: 6.6pt;
             font-weight: bold;
             text-align: center;
         }
 
         .compliance-meta {
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .compliance-meta td {
             border: 1px solid #000;
-            padding: 4px 6px;
-            font-size: 8pt;
+            padding: 1px 3px;
+            font-size: 6.4pt;
         }
 
         .compliance-meta .meta-label {
             background: #efefef;
             font-weight: bold;
-            width: 100px;
+            width: 88px;
         }
 
         .stamp-line {
-            margin-top: 4px;
-            font-size: 8pt;
+            margin-top: 2px;
+            font-size: 6.4pt;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.2px;
         }
 
         .autogen-footer {
-            margin-top: 5px;
+            margin-top: 2px;
             border-top: 1px solid #000;
             padding-top: 3px;
             text-align: center;
-            font-size: 8pt;
+            font-size: 6.4pt;
             font-weight: bold;
+        }
+
+        .compact-inline {
+            font-size: 7.5pt !important;
         }
     </style>
 </head>
@@ -225,8 +235,8 @@
 
         <div class="header-cell" style="padding: 0 4px;">
             <div class="header-center-box">
-                <span style="font-size: 9pt; font-weight: bold;">Preventive Maintenance Report</span><br>
-                <span style="font-size: 8pt;">- Asset Inspection &amp; Maintenance Record -</span>
+                <span style="font-size: 7.2pt; font-weight: bold;">Preventive Maintenance Report</span><br>
+                <span style="font-size: 6.4pt;">- Asset Inspection &amp; Maintenance Record -</span>
                 {{#if isBlankForm}}
                 <span class="pm-badge">PM #___</span>
                 {{else}}
@@ -264,10 +274,10 @@
         <div>
             <div style="display: block; margin-bottom: 2px; padding-bottom: 1px; border-bottom: 1px solid #000;">
                 <span class="section-title" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Maintenance &amp; Agency Details</span>
-                <span style="float: right; font-size: 9pt;">
+                <span style="float: right; font-size: 6.8pt;">
                     <strong>PM Date:</strong> 
                     {{#if isBlankForm}}
-                    <span style="border-bottom: 1px solid #000; display: inline-block; width: 80px; height: 10px;"></span>
+                    <span style="border-bottom: 1px solid #000; display: inline-block; width: 76px; height: 8px;"></span>
                     {{else}}
                     {{PM_Date_Formatted}}
                     {{/if}}
@@ -381,14 +391,14 @@
         <div style="padding: 5px;">
             {{#if peripherals}}
             {{#each peripherals}}
-            <div style="margin-bottom: 3px; font-size: 9pt;">
+                <div style="margin-bottom: 1px; font-size: 6.8pt;">
                 <strong>{{Peripheral_Type_Name}}:</strong> {{Serial_Code}}
             </div>
             {{/each}}
             {{/if}}
             <div style="margin-top: 5px;">
-                <strong style="font-size: 9pt;">Other Accessories:</strong>
-                <div style="border: 1px solid #000; padding: 4px; min-height: 25px; margin-top: 2px;"></div>
+                <strong style="font-size: 6.8pt;">Other Accessories:</strong>
+                <div style="border: 1px solid #000; padding: 1px; min-height: 14px; margin-top: 1px;"></div>
             </div>
         </div>
     </div>
@@ -400,8 +410,8 @@
                 <div class="signature-title" style="letter-spacing: 0.5px;">Technician Acknowledgment</div>
                 <table style="width: 100%; border: none; margin-top: 3px; border-collapse: collapse;">
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Name:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Name:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if isBlankForm}}
                             <span class="signature-underline"></span>
                             {{else}}
@@ -410,18 +420,18 @@
                         </td>
                     </tr>
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Signature:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Signature:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if Technician_Signature_Base64}}
-                            <img src="{{Technician_Signature_Base64}}" alt="Technician Signature" style="max-width: 150px; max-height: 50px; vertical-align: top;">
+                            <img src="{{Technician_Signature_Base64}}" alt="Technician Signature" style="max-width: 105px; max-height: 28px; vertical-align: top;">
                             {{else}}
                             <span class="signature-underline"></span>
                             {{/if}}
                         </td>
                     </tr>
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Date:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Date:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if isBlankForm}}
                             <span class="signature-underline"></span>
                             {{else}}
@@ -437,8 +447,8 @@
                 <div class="signature-title" style="letter-spacing: 0.5px;">Recipient Acknowledgment</div>
                 <table style="width: 100%; border: none; margin-top: 3px; border-collapse: collapse;">
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Name:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Name:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if Is_Marked_Completed}}
                             <span class="signature-underline"></span>
                             {{else}}
@@ -449,14 +459,14 @@
                     {{#unless Is_Marked_Completed}}
                     {{#if BagiPihak_Used}}
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 8pt; color: #555;">&nbsp;</td>
-                        <td style="vertical-align: top; border: none; padding: 0; font-size: 8pt; color: #555; font-style: italic;">Signed on Behalf</td>
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.4pt; color: #555;">&nbsp;</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.4pt; color: #555; font-style: italic;">Signed on Behalf</td>
                     </tr>
                     {{/if}}
                     {{/unless}}
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Department:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Department:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if Is_Marked_Completed}}
                             <span class="signature-underline"></span>
                             {{else}}
@@ -465,10 +475,10 @@
                         </td>
                     </tr>
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Signature:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Signature:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if Signature_Base64}}
-                            <img src="{{Signature_Base64}}" alt="Signature" style="max-width: 150px; max-height: 50px; vertical-align: top;">
+                            <img src="{{Signature_Base64}}" alt="Signature" style="max-width: 105px; max-height: 28px; vertical-align: top;">
                             {{else}}
                                 {{#if Is_Marked_Completed}}
                                 <span class="signature-underline-large"></span>
@@ -479,8 +489,8 @@
                         </td>
                     </tr>
                     <tr>
-                        <td style="width: 70px; vertical-align: top; border: none; padding: 2px 0; font-size: 9pt; font-weight: bold;">Date:</td>
-                        <td style="vertical-align: top; border: none; padding: 2px 0; font-size: 9pt;">
+                        <td style="width: 70px; vertical-align: top; border: none; padding: 0; font-size: 6.8pt; font-weight: bold;">Date:</td>
+                        <td style="vertical-align: top; border: none; padding: 0; font-size: 6.8pt;">
                             {{#if Signed_At_Formatted}}
                             {{Signed_At_Formatted}}
                             {{else}}

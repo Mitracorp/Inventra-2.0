@@ -84,20 +84,13 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://192.168.56.1:3000',
-      'http://172.16.0.2:3000',
-      'https://inventra.ivms2006.com',
-      'http://inventra.ivms2006.com',
-      'https://test.inventra.ivms2006.com',
-      'http://test.inventra.ivms2006.com',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
     // Allow any origin from local network in development
     if (process.env.NODE_ENV !== 'production' && origin) {
-      const isLocalNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+):3000$/.test(origin);
-      if (isLocalNetwork) {
+      const isLocalhost = /^http:\/\/localhost:3000$/.test(origin);
+      if (isLocalhost) {
         return callback(null, true);
       }
     }

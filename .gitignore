@@ -23,9 +23,6 @@ backend/logs/
 backend/uploads/pm-reports/*.pdf
 backend/uploads/bulkpm-reports/*.pdf
 
-# Ignore generated UAT report artifacts
-backend/uploads/uat-reports/*.pdf
-backend/uploads/uat-reports/verification-registry.json
 
 # Ignore signed PM reports
 backend/uploads/signed-pm-reports/*

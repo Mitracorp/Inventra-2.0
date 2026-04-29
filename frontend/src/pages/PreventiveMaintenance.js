@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle, CheckSquare, Square } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle, CheckSquare, Square, Users } from 'lucide-react';
 import { API_URL } from '../config/api';
 import Pagination from '../components/Pagination';
 import toast from '../utils/toast';
@@ -276,6 +276,7 @@ const PreventiveMaintenance = () => {
   // Bulk Download Modal States
   const [showBulkDownloadModal, setShowBulkDownloadModal] = useState(false);
   const [bulkDownloadSearch, setBulkDownloadSearch] = useState('');
+  const [bulkDownloadMode, setBulkDownloadMode] = useState('all');
   const [selectedAssets, setSelectedAssets] = useState([]); // Assets selected (left box)
   const [selectedPMRecords, setSelectedPMRecords] = useState({}); // PM records selected per asset {assetId: [pmId1, pmId2]}
   const [downloadingPDF, setDownloadingPDF] = useState(false);
@@ -312,6 +313,67 @@ const PreventiveMaintenance = () => {
   useEffect(() => {
     localStorage.setItem('inventraPMSortMode', listSortMode);
   }, [listSortMode]);
+
+  const normalizePMStatus = (status) => String(status || '').trim().toLowerCase();
+
+  const isDownloadablePMStatus = (status) => {
+    const normalized = normalizePMStatus(status);
+    return normalized === 'completed' || normalized === 'marked as completed';
+  };
+
+  const matchesBulkDownloadMode = (status) => {
+    const normalized = normalizePMStatus(status);
+
+    if (normalized === 'in-process') {
+      return false;
+    }
+
+    if (bulkDownloadMode === 'signedOnly') {
+      return normalized === 'completed';
+    }
+
+    if (bulkDownloadMode === 'unsignedOnly') {
+      return normalized === 'marked as completed';
+    }
+
+    return isDownloadablePMStatus(status);
+  };
+
+  useEffect(() => {
+    setSelectedPMRecords((currentSelections) => {
+      let hasChanges = false;
+      const nextSelections = {};
+
+      Object.entries(currentSelections).forEach(([assetId, selections]) => {
+        const asset = selectedAssets.find((item) => String(item.Asset_ID) === String(assetId));
+        if (!asset) {
+          hasChanges = true;
+          return;
+        }
+
+        const allowedIds = new Set((asset.allPMRecords || [])
+          .filter((pm) => matchesBulkDownloadMode(pm.Status))
+          .map((pm) => pm.PM_ID));
+
+        const filteredSelections = (selections || []).filter((selection) => {
+          if (selection === 'BLANK') {
+            return true;
+          }
+          return allowedIds.has(selection);
+        });
+
+        if (filteredSelections.length !== (selections || []).length) {
+          hasChanges = true;
+        }
+
+        if (filteredSelections.length > 0) {
+          nextSelections[assetId] = filteredSelections;
+        }
+      });
+
+      return hasChanges ? nextSelections : currentSelections;
+    });
+  }, [bulkDownloadMode, selectedAssets]);
 
   // Filtered lists for dropdowns (client-side search)
   const filteredCustomers = useMemo(() => {
@@ -813,15 +875,10 @@ const PreventiveMaintenance = () => {
     return (status || '').toLowerCase() !== 'completed';
   };
 
-  const getUnsignedPM1PM2CountForAsset = (asset) => {
+  const getUnsignedPMCountForAsset = (asset) => {
     const sortedPMs = getSortedAssetPMRecords(asset);
     if (sortedPMs.length === 0) return 0;
-    const firstTwo = sortedPMs.slice(0, 2);
-    return firstTwo.filter(pm => isUnsignedPMStatus(pm.PM_Status || pm.Status)).length;
-  };
-
-  const isUnsignedPM1AndPM2Asset = (asset) => {
-    return getUnsignedPM1PM2CountForAsset(asset) > 0;
+    return sortedPMs.filter(pm => isUnsignedPMStatus(pm.PM_Status || pm.Status)).length;
   };
 
   const summaryCards = useMemo(() => {
@@ -839,7 +896,7 @@ const PreventiveMaintenance = () => {
 
     return {
       totalAssets: allAssets.length,
-      unsignedPM1AndPM2: allAssets.reduce((sum, asset) => sum + getUnsignedPM1PM2CountForAsset(asset), 0),
+      unsignedPMs: allAssets.reduce((sum, asset) => sum + getUnsignedPMCountForAsset(asset), 0),
       onlyOnePM: allAssets.filter(asset => asset.pmCount === 1).length,
       noPMYet: allAssets.filter(asset => asset.pmCount === 0).length
     };
@@ -1409,6 +1466,14 @@ const PreventiveMaintenance = () => {
     }));
   };
 
+  const handleSetAllChecklist = (isOk) => {
+    const nextResults = {};
+    checklistItems.forEach((item) => {
+      nextResults[item.Checklist_ID] = isOk;
+    });
+    setChecklistResults(nextResults);
+  };
+
   const handleChecklistRemarkChange = (checklistId, remark) => {
     setChecklistItemRemarks(prev => ({
       ...prev,
@@ -1677,6 +1742,28 @@ const PreventiveMaintenance = () => {
         </div>
         <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
+            onClick={() => navigate('/pm-bulk-recipient')}
+            className="btn btn-primary"
+            style={{
+              ...headerButtonStyle,
+              ...((deleteMode || isCustomerRole()) && {
+                opacity: 0.6,
+                pointerEvents: 'none',
+                cursor: 'not-allowed',
+                backgroundColor: '#e0e0e0',
+                color: '#999'
+              })
+            }}
+            onMouseEnter={(e) => !isCustomerRole() && !deleteMode && handleHeaderButtonHover(e, true)}
+            onMouseLeave={(e) => !isCustomerRole() && !deleteMode && handleHeaderButtonHover(e, false)}
+            disabled={deleteMode || isCustomerRole()}
+            title={isCustomerRole() ? 'Customer accounts cannot access bulk recipient PM tools' : (deleteMode ? 'Cannot open bulk recipient PM tools while in delete mode' : 'Open recipient-based bulk PM and bulk sign page')}
+          >
+            <Users size={18} />
+            Bulk PM / Bulk Sign
+          </button>
+
+          <button
             onClick={handleOpenChecklistManager}
             className="btn btn-primary"
             style={{
@@ -1825,14 +1912,14 @@ const PreventiveMaintenance = () => {
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'none';
             }}
-            title="Open unsigned PM1 and PM2 page"
+            title="Open unsigned PMs page"
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <AlertCircle size={32} style={{ opacity: 0.9 }} />
-                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Unsigned PM1 & PM2</div>
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Unsigned PMs</div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.unsignedPM1AndPM2}</div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.unsignedPMs}</div>
             </div>
           </div>
 
@@ -2056,43 +2143,6 @@ const PreventiveMaintenance = () => {
               )}
             </div>
             
-            {/* Download Form Button */}
-            <button
-              onClick={() => setShowBulkDownloadModal(true)}
-              disabled={deleteMode}
-              style={{
-                padding: '14px 24px',
-                background: '#27ae60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: deleteMode ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                opacity: deleteMode ? 0.5 : 1,
-                pointerEvents: deleteMode ? 'none' : 'auto'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#229954';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#27ae60';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <Download size={18} />
-              Download Form
-            </button>
-
             {/* Delete PM Records Button */}
             {!deleteMode ? (
               <button
@@ -4054,6 +4104,42 @@ const PreventiveMaintenance = () => {
                 <h3 style={{ margin: '0 0 16px 0', color: '#2c3e50', fontSize: '1.1rem', fontWeight: '600' }}>
                   PM Checklist ({checklistItems.length} items)
                 </h3>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllChecklist(true)}
+                    style={{
+                      padding: '10px 18px',
+                      border: '2px solid #27ae60',
+                      borderRadius: '6px',
+                      background: '#27ae60',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    All Good
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllChecklist(false)}
+                    style={{
+                      padding: '10px 18px',
+                      border: '2px solid #e74c3c',
+                      borderRadius: '6px',
+                      background: '#e74c3c',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    All Bad
+                  </button>
+                </div>
                 <div style={{
                   border: '1px solid #e0e0e0',
                   borderRadius: '8px',
@@ -5432,6 +5518,42 @@ const PreventiveMaintenance = () => {
                   onBlur={(e) => e.target.style.borderColor = '#ddd'}
                 />
               </div>
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ marginBottom: '8px', fontSize: '0.9rem', fontWeight: 700, color: '#2c3e50' }}>
+                  Download Options
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'signedOnly', label: 'Signed only' },
+                    { value: 'unsignedOnly', label: 'Unsigned only' },
+                    { value: 'all', label: 'All downloadable' }
+                  ].map((option) => {
+                    const active = bulkDownloadMode === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBulkDownloadMode(option.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '999px',
+                          border: active ? '2px solid #27ae60' : '1px solid #d1d5db',
+                          background: active ? '#eafaf1' : 'white',
+                          color: active ? '#1f7a46' : '#4b5563',
+                          cursor: 'pointer',
+                          fontWeight: active ? '700' : '600',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '8px', color: '#7f8c8d', fontSize: '0.85rem' }}>
+                  Signed means completed with a signature. Unsigned means marked as completed without a signature.
+                </div>
+              </div>
             </div>
 
             {/* Two Boxes Container */}
@@ -5601,6 +5723,7 @@ const PreventiveMaintenance = () => {
                   ) : (
                     selectedAssets.map(asset => {
                       const assetPMRecords = asset.allPMRecords || [];
+                      const visiblePMRecords = assetPMRecords.filter((pm) => matchesBulkDownloadMode(pm.Status));
                       const selectedPMs = selectedPMRecords[asset.Asset_ID] || [];
                       
                       return (
@@ -5702,9 +5825,8 @@ const PreventiveMaintenance = () => {
                               </div>
                               
                               {/* Existing PM Records */}
-                              {assetPMRecords.length > 0 && assetPMRecords.map((pm, index) => {
+                              {visiblePMRecords.length > 0 && visiblePMRecords.map((pm, index) => {
                                   const isPMSelected = selectedPMs.includes(pm.PM_ID);
-                                  const isDisabled = pm.Status === 'In-Process'; // Only In-Process is disabled, Marked as Completed allowed
                                   return (
                                     <div
                                       key={pm.PM_ID}
@@ -5712,19 +5834,17 @@ const PreventiveMaintenance = () => {
                                         padding: '6px 12px',
                                         border: isPMSelected ? '2px solid #3498db' : '1px solid #ddd',
                                         borderRadius: '6px',
-                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                        background: isDisabled ? '#f5f5f5' : (isPMSelected ? '#e3f2fd' : 'white'),
+                                        cursor: 'pointer',
+                                        background: isPMSelected ? '#e3f2fd' : 'white',
                                         transition: 'all 0.2s',
                                         fontSize: '0.85rem',
                                         fontWeight: isPMSelected ? '600' : '500',
-                                        color: isDisabled ? '#bdc3c7' : (isPMSelected ? '#2c3e50' : '#666'),
+                                        color: isPMSelected ? '#2c3e50' : '#666',
                                         whiteSpace: 'nowrap',
                                         boxShadow: isPMSelected ? '0 2px 4px rgba(52, 152, 219, 0.2)' : 'none',
-                                        opacity: isDisabled ? 0.5 : 1,
                                         position: 'relative'
                                       }}
                                       onClick={() => {
-                                        if (isDisabled) return;
                                         const currentPMs = selectedPMRecords[asset.Asset_ID] || [];
                                         if (isPMSelected) {
                                           setSelectedPMRecords({
@@ -5739,25 +5859,29 @@ const PreventiveMaintenance = () => {
                                         }
                                       }}
                                       onMouseOver={(e) => {
-                                        if (!isPMSelected && !isDisabled) {
+                                        if (!isPMSelected) {
                                           e.currentTarget.style.background = '#f0f0f0';
                                           e.currentTarget.style.borderColor = '#3498db';
                                         }
                                       }}
                                       onMouseOut={(e) => {
-                                        if (!isPMSelected && !isDisabled) {
+                                        if (!isPMSelected) {
                                           e.currentTarget.style.background = 'white';
                                           e.currentTarget.style.borderColor = '#ddd';
                                         }
                                       }}
-                                      title={isDisabled ? `Cannot download - Status: In-Process (requires signature)` : `PM Date: ${formatDate(pm.PM_Date)} - Status: ${pm.Status || 'Completed'}`}
+                                      title={`PM Date: ${formatDate(pm.PM_Date)} - Status: ${pm.Status || 'Completed'}`}
                                     >
                                       {isPMSelected && <span style={{ marginRight: '4px', color: '#27ae60' }}>✓</span>}
-                                      {isDisabled && <span style={{ marginRight: '4px', color: '#e74c3c' }}>🔒</span>}
                                       {index + 1}
                                     </div>
                                   );
                                 })}
+                              {visiblePMRecords.length === 0 && (
+                                <div style={{ color: '#7f8c8d', fontSize: '0.85rem' }}>
+                                  No downloadable PM forms for this option.
+                                </div>
+                              )}
                             </div>
 
                             {/* Remove Button */}

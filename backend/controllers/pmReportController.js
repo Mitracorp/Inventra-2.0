@@ -8,6 +8,35 @@ const ExcelJS = require('exceljs');
 
 const normalizeNumber = (value) => Number(value || 0);
 
+const applyPmSequenceNumbers = (records = []) => {
+  const ordered = [...records].sort((left, right) => {
+    const leftDate = new Date(left.PM_Date || 0).getTime();
+    const rightDate = new Date(right.PM_Date || 0).getTime();
+
+    if (leftDate !== rightDate) {
+      return leftDate - rightDate;
+    }
+
+    return Number(left.PM_ID) - Number(right.PM_ID);
+  });
+
+  const sequenceByAsset = new Map();
+  const sequenceByPmId = new Map();
+
+  ordered.forEach((record) => {
+    const assetId = String(record.Asset_ID);
+    const currentSequence = sequenceByAsset.get(assetId) || 0;
+    const nextSequence = currentSequence + 1;
+    sequenceByAsset.set(assetId, nextSequence);
+    sequenceByPmId.set(Number(record.PM_ID), nextSequence);
+  });
+
+  return records.map((record) => ({
+    ...record,
+    PM_Sequence: sequenceByPmId.get(Number(record.PM_ID)) || 1
+  }));
+};
+
 const classifyStatus = (status) => {
   const normalized = String(status || 'unknown').trim().toLowerCase();
   if (['completed', 'done', 'closed'].includes(normalized)) return 'completed';
@@ -35,8 +64,8 @@ const buildWhereClause = (start, end, customerId, projectId, completedOnly = fal
   }
 
   if (customerId) {
-    conditions.push('i.Customer_ID = ?');
-    params.push(customerId);
+    conditions.push('(c.Customer_Name = ? OR c.Customer_Ref_Number = ? OR i.Customer_ID = ?)');
+    params.push(customerId, customerId, customerId);
   }
 
   if (projectId) {
@@ -55,8 +84,8 @@ const fetchCustomerName = async (customerId) => {
   if (!customerId) return '';
   try {
     const [customer] = await pool.execute(
-      'SELECT Customer_Name FROM CUSTOMER WHERE Customer_ID = ?',
-      [customerId]
+      'SELECT Customer_Name FROM CUSTOMER WHERE Customer_Name = ? OR Customer_Ref_Number = ? OR Customer_ID = ? LIMIT 1',
+      [customerId, customerId, customerId]
     );
     return customer?.[0]?.Customer_Name || '';
   } catch (error) {
@@ -75,6 +104,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
+    LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
     GROUP BY COALESCE(NULLIF(TRIM(pm.Status), ''), 'Unknown')
     ORDER BY count DESC
@@ -85,6 +115,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
+    LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
   `;
 
@@ -95,6 +126,8 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
       pm.PM_Date,
       pm.Remarks,
       pm.Status,
+      pm.signature_path,
+      pm.file_path_acknowledgement,
       a.Asset_Tag_ID,
       a.Item_Name,
       a.Asset_Serial_Number,
@@ -137,6 +170,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
     LEFT JOIN PROJECT p ON i.Project_ID = p.Project_ID
+    LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
     GROUP BY COALESCE(p.Project_Ref_Number, 'N/A'), COALESCE(p.Project_Title, 'Unknown Project')
     ORDER BY total DESC
@@ -150,6 +184,8 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
     pool.execute(customerSummaryQuery, params),
     pool.execute(projectSummaryQuery, params)
   ]);
+
+  const sequencedRecords = applyPmSequenceNumbers(records || []);
 
   const statusBreakdown = (statusRows || []).map((row) => ({
     status: row.status,
@@ -173,7 +209,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
       incomplete,
       totalAssets: normalizeNumber(assetRows?.[0]?.totalAssets)
     },
-    records: records || [],
+      records: sequencedRecords,
     statusBreakdown,
     customerSummary: (customerSummary || []).map((r) => ({
       customer: r.customer,
@@ -195,6 +231,13 @@ const generatePMReport = async (req, res) => {
 
     const customerName = await fetchCustomerName(customerId);
     const dataset = await fetchReportDataset({ start, end, customerId, projectId, completedOnly });
+    const allPmRecords = dataset.records.map((record) => ({
+      PM_ID: record.PM_ID,
+      PM_Sequence: Number(record.PM_Sequence) || 1,
+      signature_path: record.signature_path || null,
+      file_path_acknowledgement: record.file_path_acknowledgement || null,
+      Status: record.Status || 'Unknown'
+    }));
 
     res.json({
       period: getPeriodLabel(dateRange, startDate, endDate, start, end),
@@ -205,6 +248,7 @@ const generatePMReport = async (req, res) => {
       customerSummary: dataset.customerSummary,
       projectSummary: dataset.projectSummary,
       allPmIds: dataset.records.map((record) => record.PM_ID),
+      allPmRecords,
       records: reportType === 'summary' || reportType === 'metrics' ? dataset.records.slice(0, 20) : dataset.records
     });
   } catch (error) {

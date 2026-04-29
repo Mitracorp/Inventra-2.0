@@ -6,6 +6,10 @@ const fs = require('fs').promises;
 const {
   getAllPM,
   getPMStatistics,
+  getRecipientsForBulkOps,
+  getRecipientAssetsForBulkOps,
+  bulkCreatePMByRecipient,
+  bulkSignPM,
   getCustomers,
   getBranchesByCustomer,
   getPMByCustomerAndBranch,
@@ -39,6 +43,8 @@ const router = express.Router();
 // Routes
 router.get('/', authenticateToken, getAllPM);
 router.get('/statistics', authenticateToken, getPMStatistics);
+router.get('/recipients-summary', authenticateToken, getRecipientsForBulkOps);
+router.get('/recipient/:recipientId/assets', authenticateToken, getRecipientAssetsForBulkOps);
 router.get('/customers', authenticateToken, getCustomers);
 router.get('/customers/:customerId/branches', getBranchesByCustomer);
 router.get('/filter', getPMByCustomerAndBranch);
@@ -336,6 +342,8 @@ router.get('/assets', async (req, res) => {
 
 // Bulk download route
 router.post('/bulk-download', bulkDownloadPM);
+router.post('/bulk-create-by-recipient', authenticateToken, bulkCreatePMByRecipient);
+router.post('/bulk-sign', authenticateToken, bulkSignPM);
 
 router.post('/', authenticateToken, createPM);
 router.post('/:pmId/upload-acknowledgement', uploadAcknowledgement);

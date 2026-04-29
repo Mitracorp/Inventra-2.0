@@ -8,10 +8,8 @@ import {
   CheckCircle,
   Clock,
   FileText,
-  RefreshCw,
   ArrowLeft,
-  Loader,
-  Files
+  Loader
 } from 'lucide-react';
 import { API_URL } from '../config/api';
 import apiService from '../services/apiService';
@@ -52,10 +50,12 @@ const PMReports = () => {
   // State for filters
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedContract, setSelectedContract] = useState('');
-  const [reportType, setReportType] = useState('summary');
+  const reportType = 'detailed';
+  const [bulkDownloadPmScope, setBulkDownloadPmScope] = useState('pm1');
+  const [bulkDownloadSignatureScope, setBulkDownloadSignatureScope] = useState('signedOnly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [dateRange, setDateRange] = useState('contractToDate');
+  const dateRange = 'contractToDate';
 
   // State for data
   const [customers, setCustomers] = useState([]);
@@ -105,7 +105,7 @@ const PMReports = () => {
     setSelectedContract('');
   };
 
-  const handleGenerateReport = async () => {
+  const handleBulkDownloadForms = async () => {
     try {
       setGenerating(true);
       const filters = {
@@ -114,80 +114,8 @@ const PMReports = () => {
         projectId: selectedContract || null,
         startDate: startDate || null,
         endDate: endDate || null,
-        dateRange
-      };
-
-      const response = await fetchJson(`${apiBaseUrl}/pm-reports/generate`, {
-        method: 'POST',
-        body: JSON.stringify(filters)
-      });
-      const data = await response.json();
-
-      if (data) {
-        setReportData(data);
-        setMetrics(data.metrics);
-        if ((data.metrics?.total || 0) === 0) {
-          toast.info('No PM records found for the selected filters. Try Contract-to-Date or a wider date range.');
-        } else {
-          toast.success('Report generated successfully');
-        }
-      }
-    } catch (error) {
-      console.error('Error generating report:', error);
-      toast.error('Failed to generate report');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleDownloadReport = async () => {
-    try {
-      const filters = {
-        reportType,
-        customerId: selectedCustomer || null,
-        projectId: selectedContract || null,
-        startDate: startDate || null,
-        endDate: endDate || null,
-        dateRange
-      };
-
-      const response = await fetch(`${apiBaseUrl}/pm-reports/download`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(filters)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || errorData?.error || 'Failed to download report');
-      }
-
-      // Create a blob and download
-      const url = window.URL.createObjectURL(await response.blob());
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `PM-Report-${new Date().getTime()}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      
-      toast.success('Report downloaded successfully');
-    } catch (error) {
-      console.error('Error downloading report:', error);
-      toast.error('Failed to download report');
-    }
-  };
-
-  const handleBulkDownloadForms = async () => {
-    try {
-      const filters = {
-        reportType,
-        customerId: selectedCustomer || null,
-        projectId: selectedContract || null,
-        startDate: startDate || null,
-        endDate: endDate || null,
         dateRange,
-        completedOnly: true
+        completedOnly: bulkDownloadSignatureScope === 'signedOnly'
       };
 
       const idsResponse = await fetchJson(`${apiBaseUrl}/pm-reports/generate`, {
@@ -196,10 +124,43 @@ const PMReports = () => {
       });
 
       const idsPayload = await idsResponse.json();
-      const pmIds = Array.isArray(idsPayload?.allPmIds) ? idsPayload.allPmIds : [];
+      setReportData(idsPayload);
+      setMetrics(idsPayload.metrics);
+      const allPmRecords = Array.isArray(idsPayload?.allPmRecords) ? idsPayload.allPmRecords : [];
+
+      const normalizeStatus = (status) => String(status || '').trim().toLowerCase();
+      const isSigned = (record) => normalizeStatus(record.Status) === 'completed' && !!record.signature_path;
+      const isUnsigned = (record) => {
+        const status = normalizeStatus(record.Status);
+        return !!record.file_path_acknowledgement || status === 'marked as completed' || (status === 'completed' && !record.signature_path);
+      };
+
+      const pmIds = allPmRecords
+        .filter((record) => {
+          const sequence = Number(record.PM_Sequence) || 1;
+
+          if (bulkDownloadPmScope === 'pm1' && sequence !== 1) return false;
+          if (bulkDownloadPmScope === 'pm2plus' && sequence < 2) return false;
+
+          if (bulkDownloadSignatureScope === 'signedOnly') return isSigned(record);
+          if (bulkDownloadSignatureScope === 'unsignedOnly') return isUnsigned(record);
+          return isSigned(record) || isUnsigned(record);
+        })
+        .map((record) => record.PM_ID);
 
       if (pmIds.length === 0) {
-        toast.info('No completed PM forms available for the selected filters.');
+        const scopeLabel = bulkDownloadPmScope === 'pm1'
+          ? 'PM1'
+          : bulkDownloadPmScope === 'pm2plus'
+            ? 'PM2 and above'
+            : 'PM forms';
+        const signatureLabel = bulkDownloadSignatureScope === 'signedOnly'
+          ? 'signed'
+          : bulkDownloadSignatureScope === 'unsignedOnly'
+            ? 'unsigned'
+            : 'downloadable';
+        const scopeMessage = `No ${signatureLabel} ${scopeLabel} available for the selected filters.`;
+        toast.info(scopeMessage);
         return;
       }
 
@@ -211,7 +172,13 @@ const PMReports = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.message || errorData?.error || 'Failed to bulk download PM forms');
+        const pmLabel = bulkDownloadPmScope === 'pm1' ? 'PM1' : bulkDownloadPmScope === 'pm2plus' ? 'PM2 and above' : 'PM forms';
+        const signatureLabel = bulkDownloadSignatureScope === 'signedOnly'
+          ? 'signed'
+          : bulkDownloadSignatureScope === 'unsignedOnly'
+            ? 'unsigned'
+            : 'downloadable';
+        throw new Error(errorData?.message || errorData?.error || `Failed to bulk download ${signatureLabel} ${pmLabel}`);
       }
 
       const contentDisposition = response.headers.get('content-disposition') || '';
@@ -229,10 +196,18 @@ const PMReports = () => {
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      toast.success(`Completed PM forms downloaded (${pmIds.length} record${pmIds.length > 1 ? 's' : ''})`);
+      const pmLabel = bulkDownloadPmScope === 'pm1' ? 'PM1' : bulkDownloadPmScope === 'pm2plus' ? 'PM2 and above' : 'PM forms';
+      const signatureLabel = bulkDownloadSignatureScope === 'signedOnly'
+        ? 'signed'
+        : bulkDownloadSignatureScope === 'unsignedOnly'
+          ? 'unsigned'
+          : 'downloadable';
+      toast.success(`Downloaded ${pmIds.length} ${signatureLabel} ${pmLabel}`);
     } catch (error) {
       console.error('Error bulk downloading PM forms:', error);
-      toast.error('Failed to bulk download PM forms');
+      toast.error(error.message || 'Failed to bulk download PM forms');
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -259,21 +234,6 @@ const PMReports = () => {
         {/* Left Panel - Filters */}
         <div className="reports-filters-panel">
           <h2>Report Filters</h2>
-
-          {/* Report Type */}
-          <div className="filter-group">
-            <label>Report Type</label>
-            <select
-              value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
-              className="filter-select"
-            >
-              <option value="summary">Management Summary</option>
-              <option value="detailed">Detailed Report</option>
-              <option value="metrics">Completion Metrics</option>
-              <option value="customer">Customer-Specific</option>
-            </select>
-          </div>
 
           {/* Customer Filter */}
           <div className="filter-group">
@@ -311,17 +271,29 @@ const PMReports = () => {
             </div>
           )}
 
-          {/* Date Range Type */}
           <div className="filter-group">
-            <label>Date Range Type</label>
+            <label>Bulk Download PM Scope</label>
             <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
+              value={bulkDownloadPmScope}
+              onChange={(e) => setBulkDownloadPmScope(e.target.value)}
               className="filter-select"
             >
-              <option value="month">Monthly</option>
-              <option value="range">Custom Range</option>
-              <option value="contractToDate">Contract to Date</option>
+              <option value="pm1">PM1 only</option>
+              <option value="pm2plus">PM2 and above</option>
+              <option value="all">All PMs</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Bulk Download Signature Scope</label>
+            <select
+              value={bulkDownloadSignatureScope}
+              onChange={(e) => setBulkDownloadSignatureScope(e.target.value)}
+              className="filter-select"
+            >
+              <option value="signedOnly">Signed only</option>
+              <option value="unsignedOnly">Unsigned only</option>
+              <option value="all">Signed and unsigned</option>
             </select>
           </div>
 
@@ -352,38 +324,18 @@ const PMReports = () => {
           {/* Action Buttons */}
           <div className="filter-actions">
             <button
-              className="btn btn-primary btn-generate"
-              onClick={handleGenerateReport}
-              disabled={generating}
-            >
-              {generating ? (
-                <>
-                  <Loader size={18} className="spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={18} />
-                  Generate Report
-                </>
-              )}
-            </button>
-            <button
-              className="btn btn-secondary btn-download"
-              onClick={handleDownloadReport}
-              disabled={!reportData || generating}
-            >
-              <Download size={18} />
-              Download
-            </button>
-            <button
               className="btn btn-secondary btn-download"
               onClick={handleBulkDownloadForms}
-              disabled={!reportData || !(reportData.allPmIds && reportData.allPmIds.length > 0) || generating}
-              title="Download PM forms in a single PDF using current filters"
+              disabled={generating}
+              style={{
+                background: '#d5f5d5',
+                color: '#1f7a46',
+                border: '1px solid #93d3a2',
+                fontWeight: 700
+              }}
             >
-              <Files size={18} />
-              Bulk PM Forms
+              {generating ? <Loader size={18} className="spin" /> : <Download size={18} />}
+              {generating ? 'Downloading...' : 'Download'}
             </button>
           </div>
         </div>
@@ -393,8 +345,8 @@ const PMReports = () => {
           {!reportData ? (
             <div className="empty-state">
               <FileText size={48} />
-              <h3>No Report Generated</h3>
-              <p>Select filters and click "Generate Report" to view PM data</p>
+              <h3>Ready to Download</h3>
+              <p>Select the filters and download scope on the left, then click Download.</p>
             </div>
           ) : (
             <>

@@ -1,3 +1,5 @@
+process.env.OPENSSL_CONF = process.env.OPENSSL_CONF || '/dev/null';
+
 const pdf = require('html-pdf');
 const handlebars = require('handlebars');
 const fs = require('fs').promises;
@@ -221,15 +223,15 @@ class PDFGenerator {
                 format: 'A4',
                 orientation: 'portrait',
                 border: {
-                    top: '8mm',
-                    right: '8mm',
-                    bottom: '8mm',
-                    left: '8mm'
+                    top: '10mm',
+                    right: '10mm',
+                    bottom: '10mm',
+                    left: '10mm'
                 },
                 type: 'pdf',
                 quality: '100',
                 dpi: 96,
-                zoomFactor: '1',
+                zoomFactor: '0.78',
                 timeout: 30000,         // 30 seconds for PhantomJS
                 httpTimeout: 30000,     // 30 seconds for HTTP requests
                 height: '297mm',        // A4 height

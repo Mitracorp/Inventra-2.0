@@ -46,8 +46,14 @@ const testConnection = async () => {
     connection.release();
     return true;
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    logger.error('❌ Database connection failed:', error.message);
+    const details = {
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      message: error.message || '(empty message)'
+    };
+    console.error('❌ Database connection failed:', details);
+    logger.error('❌ Database connection failed:', details);
     return false;
   }
 };

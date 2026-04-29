@@ -15,6 +15,16 @@ const PMDetail = () => {
   const { pmId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const returnToQuery = new URLSearchParams(location.search).get('returnTo');
+  const backDestination = location.state?.from || returnToQuery;
+
+  const handleBackNavigation = () => {
+    if (backDestination) {
+      navigate(backDestination);
+      return;
+    }
+    navigate('/maintenance');
+  };
   const [pmData, setPmData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,7 +128,7 @@ const PMDetail = () => {
       }
 
       toast.success('PM record deleted successfully');
-      navigate(-1); // Go back to previous page
+      handleBackNavigation();
     } catch (err) {
       console.error('Error deleting PM record:', err);
       toast.error('Failed to delete PM record. Please try again.');
@@ -344,7 +354,7 @@ const PMDetail = () => {
     return (
       <div className="page-container">
         <div className="page-header">
-          <button onClick={() => navigate(-1)} className="btn btn-secondary">
+          <button onClick={handleBackNavigation} className="btn btn-secondary">
             <ArrowLeft size={16} style={{ marginRight: '5px' }} />
             Back
           </button>
@@ -360,7 +370,7 @@ const PMDetail = () => {
     return (
       <div className="page-container">
         <div className="page-header">
-          <button onClick={() => navigate(-1)} className="btn btn-secondary">
+          <button onClick={handleBackNavigation} className="btn btn-secondary">
             <ArrowLeft size={16} style={{ marginRight: '5px' }} />
             Back
           </button>
@@ -381,7 +391,7 @@ const PMDetail = () => {
     return (
       <div className="page-container">
         <div className="page-header">
-          <button onClick={() => navigate(-1)} className="btn btn-secondary">
+          <button onClick={handleBackNavigation} className="btn btn-secondary">
             <ArrowLeft size={16} style={{ marginRight: '5px' }} />
             Back
           </button>
@@ -400,14 +410,7 @@ const PMDetail = () => {
       <div className="page-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <button 
-            onClick={() => {
-              // Navigate back to previous page with preserved state
-              if (location.state?.from) {
-                navigate(location.state.from);
-              } else {
-                navigate('/maintenance');
-              }
-            }}
+            onClick={handleBackNavigation}
             style={{
               padding: '10px 20px',
               background: 'white',

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { API_URL } from '../config/api';
 import usePageTitle from '../hooks/usePageTitle';
 import { ArrowLeft, Calendar, CheckCircle, AlertTriangle, FileText, Package, Search } from 'lucide-react';
@@ -40,8 +40,8 @@ const pageMeta = {
     icon: <Calendar size={20} color="#10b981" />
   },
   unsigned: {
-    title: 'Unsigned PM1 & PM2',
-    description: 'PM1/PM2 records pending recipient signature/completion',
+    title: 'Unsigned PMs',
+    description: 'Unsigned PM records pending recipient signature/completion',
     icon: <AlertTriangle size={20} color="#f59e0b" />
   },
   'one-pm': {
@@ -56,9 +56,20 @@ const pageMeta = {
   }
 };
 
+const unsignedPmOptions = [
+  { value: 'all', label: 'All Unsigned PMs' },
+  { value: '1', label: 'Unsigned PM1' },
+  { value: '2', label: 'Unsigned PM2' },
+  { value: '3', label: 'Unsigned PM3' },
+  { value: '4', label: 'Unsigned PM4' },
+  { value: '5', label: 'Unsigned PM5' },
+  { value: '6plus', label: 'Unsigned PM6+' }
+];
+
 const PMOverviewPage = () => {
   const { type } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const meta = pageMeta[type] || pageMeta.total;
@@ -68,6 +79,7 @@ const PMOverviewPage = () => {
   const [branches, setBranches] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(searchParams.get('customer') || '');
   const [selectedBranch, setSelectedBranch] = useState(searchParams.get('branch') || '');
+  const [unsignedPmFilter, setUnsignedPmFilter] = useState(searchParams.get('unsignedPm') || 'all');
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -145,8 +157,11 @@ const PMOverviewPage = () => {
     const params = new URLSearchParams();
     if (selectedCustomer) params.set('customer', selectedCustomer);
     if (selectedBranch) params.set('branch', selectedBranch);
+    if (type === 'unsigned' && unsignedPmFilter && unsignedPmFilter !== 'all') {
+      params.set('unsignedPm', unsignedPmFilter);
+    }
     setSearchParams(params, { replace: true });
-  }, [selectedCustomer, selectedBranch, setSearchParams]);
+  }, [selectedCustomer, selectedBranch, unsignedPmFilter, type, setSearchParams]);
 
   const prepared = useMemo(() => {
     const byAsset = new Map();
@@ -211,7 +226,15 @@ const PMOverviewPage = () => {
         return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       });
     } else if (type === 'unsigned') {
-      items = pmRecords.filter((pm) => pm.PM_Sequence <= 2 && (pm.PM_Status || '').toLowerCase() !== 'completed');
+      items = pmRecords.filter((pm) => (pm.PM_Status || '').toLowerCase() !== 'completed');
+      if (unsignedPmFilter !== 'all') {
+        if (unsignedPmFilter === '6plus') {
+          items = items.filter((pm) => pm.PM_Sequence >= 6);
+        } else {
+          const sequence = Number(unsignedPmFilter);
+          items = items.filter((pm) => pm.PM_Sequence === sequence);
+        }
+      }
     } else if (type === 'one-pm') {
       mode = 'asset';
       items = assets.filter((a) => a.pmCount === 1);
@@ -237,7 +260,7 @@ const PMOverviewPage = () => {
     }
 
     return { mode, items };
-  }, [records, search, type]);
+  }, [records, search, type, unsignedPmFilter]);
 
   return (
     <div style={{ padding: '0 20px 24px 20px' }}>
@@ -279,7 +302,7 @@ const PMOverviewPage = () => {
       </div>
 
       <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: type === 'unsigned' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '12px' }}>
           <SearchableSelect
             value={selectedCustomer}
             options={customers}
@@ -292,22 +315,30 @@ const PMOverviewPage = () => {
             onChange={setSelectedBranch}
             placeholder="Select branch"
           />
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', top: '50%', left: '10px', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search asset tag, item, serial, recipient/client..."
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '10px 12px 10px 34px',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                fontSize: '0.95rem'
-              }}
+          {type === 'unsigned' && (
+            <SearchableSelect
+              value={unsignedPmFilter}
+              options={unsignedPmOptions}
+              onChange={setUnsignedPmFilter}
+              placeholder="Select unsigned PM"
             />
-          </div>
+          )}
+        </div>
+        <div style={{ marginTop: '12px', position: 'relative' }}>
+          <Search size={16} style={{ position: 'absolute', top: '50%', left: '10px', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search asset tag, item, serial, recipient/client..."
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '10px 12px 10px 34px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '0.95rem'
+            }}
+          />
         </div>
       </div>
 
@@ -339,7 +370,10 @@ const PMOverviewPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {prepared.items.map((pm) => (
+                {prepared.items.map((pm) => {
+                  const fromPath = `${location.pathname}${location.search}`;
+                  const detailPath = `/maintenance/detail/${pm.PM_ID}?returnTo=${encodeURIComponent(fromPath)}`;
+                  return (
                   <tr key={pm.PM_ID} style={{ borderTop: '1px solid #e5e7eb' }}>
                     <td style={{ padding: '10px' }}>{pm.asset.Asset_Tag_ID || '-'}</td>
                     <td style={{ padding: '10px' }}>{pm.asset.Item_Name || '-'}</td>
@@ -360,7 +394,7 @@ const PMOverviewPage = () => {
                     </td>
                     <td style={{ padding: '10px' }}>
                       <button
-                        onClick={() => navigate(`/maintenance/detail/${pm.PM_ID}`)}
+                        onClick={() => navigate(detailPath, { state: { from: fromPath } })}
                         style={{
                           border: 'none',
                           borderRadius: '6px',
@@ -375,7 +409,8 @@ const PMOverviewPage = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -394,7 +429,13 @@ const PMOverviewPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {prepared.items.map((asset) => (
+                {prepared.items.map((asset) => {
+                  const fromPath = `${location.pathname}${location.search}`;
+                  const latestPmId = asset.pms.length > 0 ? asset.pms[asset.pms.length - 1].PM_ID : null;
+                  const detailPath = latestPmId
+                    ? `/maintenance/detail/${latestPmId}?returnTo=${encodeURIComponent(fromPath)}`
+                    : '';
+                  return (
                   <tr key={asset.Asset_ID} style={{ borderTop: '1px solid #e5e7eb' }}>
                     <td style={{ padding: '10px' }}>{asset.Asset_Tag_ID || '-'}</td>
                     <td style={{ padding: '10px' }}>{asset.Item_Name || '-'}</td>
@@ -405,7 +446,7 @@ const PMOverviewPage = () => {
                     <td style={{ padding: '10px' }}>
                       {asset.pms.length > 0 ? (
                         <button
-                          onClick={() => navigate(`/maintenance/detail/${asset.pms[asset.pms.length - 1].PM_ID}`)}
+                          onClick={() => navigate(detailPath, { state: { from: fromPath } })}
                           style={{
                             border: 'none',
                             borderRadius: '6px',
@@ -423,7 +464,8 @@ const PMOverviewPage = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -433,7 +475,7 @@ const PMOverviewPage = () => {
       {type === 'unsigned' && prepared.mode === 'pm' && prepared.items.length > 0 && (
         <div style={{ marginTop: '12px', color: '#7c2d12', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <CheckCircle size={16} />
-          Open each PM detail to complete recipient signing and final submission.
+          Open each unsigned PM detail to complete recipient signing and final submission.
         </div>
       )}
     </div>

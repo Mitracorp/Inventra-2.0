@@ -13,6 +13,7 @@ import AssetDetail from './pages/AssetDetail';
 import PreventiveMaintenance from './pages/PreventiveMaintenance';
 import PMDetail from './pages/PMDetail';
 import PMImport from './pages/PMImport';
+import PMBulkRecipientOps from './pages/PMBulkRecipientOps';
 import PMSchedule from './pages/PMSchedule';
 import PMOverviewPage from './pages/PMOverviewPage';
 import PMReports from './pages/PMReports';
@@ -81,8 +82,7 @@ function App() {
 
             // Send token to backend
             const candidateApiUrls = Array.from(new Set([
-              process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api/v1',
-              'http://127.0.0.1:5000/api/v1',
+              process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
               'http://localhost:5000/api/v1'
             ]));
 
@@ -233,6 +233,7 @@ function App() {
               <Route path="/pm-schedule" element={<PMSchedule />} />
               <Route path="/maintenance/overview/:type" element={<PMOverviewPage />} />
               <Route path="/pm-import" element={<PMImport />} />
+              <Route path="/pm-bulk-recipient" element={<PMBulkRecipientOps />} />
               <Route path="/pm-reports" element={<PMReports />} />
               <Route path="/maintenance/detail/:pmId" element={<PMDetail />} />
               <Route path="/models" element={<Models />} />
