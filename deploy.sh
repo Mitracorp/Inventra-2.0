@@ -36,7 +36,7 @@ fi
 
 cd "$APP_DIR"
 
-export NODE_ENV=production
+export NODE_ENV=development
 
 log "Pulling latest code"
 git fetch origin "$BRANCH"

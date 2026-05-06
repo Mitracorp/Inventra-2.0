@@ -84,6 +84,7 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:3000',
+      'http://127.0.0.1:3000',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
@@ -93,7 +94,7 @@ const corsOptions = {
       if (isLocalhost) {
         return callback(null, true);
       }
-    }
+  }
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);

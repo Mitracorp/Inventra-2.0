@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:start\" --names \"BACKEND,FRONTEND\" --prefix-colors \"bgBlue.bold,bgGreen.bold\"",
-    "start": "npm run dev",
+    "start": "npm run backend:start",
     "frontend:start": "cd frontend && npm start",
     "backend:dev": "cd backend && npm run dev",
     "backend:start": "cd backend && npm start",

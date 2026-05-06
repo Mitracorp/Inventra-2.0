@@ -103,6 +103,7 @@ export const toast = {
   success: (message, duration) => showToast(message, 'success', duration),
   error: (message, duration) => showToast(message, 'error', duration),
   info: (message, duration) => showToast(message, 'info', duration),
+  warn: (message, duration) => showToast(message, 'warn', duration),
 };
 
 export default toast;

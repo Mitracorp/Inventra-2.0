@@ -430,7 +430,7 @@ Developer B:
 - Upload all backend files to application root
 - Create `.env` file:
   ```env
-  NODE_ENV=production
+   NODE_ENV=development
   PORT=3000
   DB_HOST=localhost
   DB_USER=your_db_user
