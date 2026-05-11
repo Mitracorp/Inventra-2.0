@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Package, Users, TrendingUp, BarChart3, AlertCircle, LayoutDashboard, Activity, Clock, CheckCircle, XCircle, Edit, Trash, Monitor, DollarSign, Calendar } from 'lucide-react';
+import { Plus, Package, Users, TrendingUp, BarChart3, AlertCircle, LayoutDashboard, Activity, Clock, CheckCircle, Edit, Trash, Monitor, DollarSign, Calendar } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  LabelList
+} from 'recharts';
 import apiService from '../services/apiService';
 import usePageTitle from '../hooks/usePageTitle';
 import './Dashboard.css';
@@ -14,13 +28,13 @@ const Dashboard = () => {
   
   // State to track which cards are expanded (default: all minimized)
   const [expandedCards, setExpandedCards] = useState({
-    deviceAnalysis: false,
-    customerDistribution: false,
-    modelDistribution: false,
-    revenueByCategory: false,
-    warrantyTimeline: false,
-    peripheralDistribution: false,
-    recentActivity: false
+    deviceAnalysis: true,
+    customerDistribution: true,
+    modelDistribution: true,
+    revenueByCategory: true,
+    warrantyTimeline: true,
+    peripheralDistribution: true,
+    recentActivity: true
   });
   
   // Define adjacent card pairs
@@ -254,74 +268,141 @@ const Dashboard = () => {
   }
 
   // Extract data from API response
-  const { stats, customerAssetData, modelData, revenueByCategory, warrantyByProject, peripheralTypeDistribution, customerDistribution, customersByCategory, recentAssets } = dashboardData || {};
+  const { stats, customerAssetData, modelData, revenueByCategory, warrantyByProject, peripheralTypeDistribution, customersByCategory } = dashboardData || {};
   const { totalAssets = 0, activeAssets = 0, totalCustomers = 0, totalValue = 0, totalPeripherals = 0 } = stats || {};
 
-  const maxDevices = customerAssetData?.length > 0
-    ? Math.max(...customerAssetData.map(item => parseInt(item.devices)))
-    : 0;
+  const activeAssetsRate = totalAssets > 0 ? ((activeAssets / totalAssets) * 100).toFixed(1) : '0.0';
+  const inactiveAssets = Math.max(totalAssets - activeAssets, 0);
+  const inactiveAssetsRate = totalAssets > 0 ? ((inactiveAssets / totalAssets) * 100).toFixed(1) : '0.0';
+  const assetsPerCustomer = totalCustomers > 0 ? (totalAssets / totalCustomers).toFixed(1) : '0.0';
+  const avgAssetValue = totalAssets > 0 ? totalValue / totalAssets : 0;
+  const peripheralsPerAsset = totalAssets > 0 ? (totalPeripherals / totalAssets).toFixed(2) : '0.00';
 
-  const maxModels = modelData?.length > 0
-    ? Math.max(...modelData.map(item => item.count))
-    : 0;
-
-  const maxPeripheralCount = peripheralTypeDistribution?.length > 0
-    ? Math.max(...peripheralTypeDistribution.map(item => item.count))
-    : 0;
-
-  const maxRevenue = revenueByCategory?.length > 0
-    ? Math.max(...revenueByCategory.map(item => item.revenue))
-    : 0;
-
-  // Find max total assets across all customers for scaling
-  const maxCustomerAssets = customersByCategory && Object.keys(customersByCategory).length > 0
-    ? Math.max(...Object.values(customersByCategory).map(c => c.total))
-    : 0;
-
-  // Dynamically generate category colors based on actual categories in the data
-  const getCategoryColors = () => {
-    if (!customersByCategory || Object.keys(customersByCategory).length === 0) {
-      return {};
+  const statCards = [
+    {
+      key: 'assets',
+      label: 'Total Assets',
+      value: totalAssets.toLocaleString('en-MY'),
+      meta: `${assetsPerCustomer} assets per customer`,
+      icon: Package,
+      iconSize: 30
+    },
+    {
+      key: 'customers',
+      label: 'Total Customers',
+      value: totalCustomers.toLocaleString('en-MY'),
+      meta: totalCustomers > 0 ? 'Active project base' : 'No customer records yet',
+      icon: Users,
+      iconSize: 30
+    },
+    {
+      key: 'active',
+      label: 'Active Assets',
+      value: activeAssets.toLocaleString('en-MY'),
+      meta: `${activeAssetsRate}% of total assets`,
+      icon: TrendingUp,
+      iconSize: 30
+    },
+    {
+      key: 'value',
+      label: 'Total Value',
+      value: totalValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      meta: `Avg RM ${avgAssetValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per asset`,
+      icon: DollarSign,
+      iconSize: 30,
+      isCurrency: true
+    },
+    {
+      key: 'peripherals',
+      label: 'Total Peripherals',
+      value: totalPeripherals.toLocaleString('en-MY'),
+      meta: `${peripheralsPerAsset} peripherals per asset`,
+      icon: Monitor,
+      iconSize: 30
+    },
+    {
+      key: 'inactive',
+      label: 'Inactive Assets',
+      value: inactiveAssets.toLocaleString('en-MY'),
+      meta: `${inactiveAssetsRate}% of total assets`,
+      icon: AlertCircle,
+      iconSize: 30
     }
+  ];
 
-    // Extract all unique categories from the data
-    const uniqueCategories = new Set();
-    Object.values(customersByCategory).forEach(customerData => {
-      customerData.categories.forEach(cat => {
-        uniqueCategories.add(cat.category);
-      });
-    });
+  const chartPalette = ['#2563eb', '#0ea5e9', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#64748b', '#ec4899'];
 
-    // Define a color palette
-    const colorPalette = [
-      '#60a5fa', // Light Blue
-      '#34d399', // Green
-      '#a78bfa', // Purple
-      '#f87171', // Red
-      '#fbbf24', // Yellow
-      '#fb923c', // Orange
-      '#ec4899', // Pink
-      '#14b8a6', // Teal
-      '#8b5cf6', // Violet
-      '#10b981', // Emerald
-      '#f59e0b', // Amber
-      '#6366f1', // Indigo
-      '#ef4444', // Rose
-      '#06b6d4', // Cyan
-      '#84cc16', // Lime
-      '#d946ef', // Fuchsia
-    ];
-
-    // Assign colors to categories
-    const categoryColors = {};
-    Array.from(uniqueCategories).sort().forEach((category, index) => {
-      categoryColors[category] = colorPalette[index % colorPalette.length];
-    });
-
-    return categoryColors;
+  const formatCurrencyCompact = (value) => {
+    const numericValue = Number(value) || 0;
+    return `RM ${numericValue.toLocaleString('en-MY')}`;
   };
 
-  const categoryColors = getCategoryColors();
+  const deviceAnalysisData = (customerAssetData || [])
+    .map((item) => ({
+      name: item.customer,
+      devices: Number(item.devices) || 0
+    }))
+    .filter((item) => item.devices > 0)
+    .slice(0, 10);
+
+  const customerDistributionData = customersByCategory
+    ? Object.entries(customersByCategory)
+        .map(([customerName, data]) => ({
+          name: customerName,
+          assets: Number(data.total) || 0
+        }))
+        .filter((item) => item.assets > 0)
+        .sort((a, b) => b.assets - a.assets)
+    : [];
+
+  const customerDistributionTotal = customerDistributionData.reduce(
+    (sum, item) => sum + item.assets,
+    0
+  );
+
+  const modelDistributionData = (modelData || [])
+    .map((item) => ({
+      name: item.model,
+      assets: Number(item.count) || 0
+    }))
+    .filter((item) => item.assets > 0)
+    .slice(0, 10);
+
+  const revenueData = (revenueByCategory || [])
+    .map((item) => ({
+      name: item.category,
+      revenue: Number(item.revenue) || 0,
+      assets: Number(item.count) || 0
+    }))
+    .filter((item) => item.revenue > 0)
+    .sort((a, b) => b.revenue - a.revenue);
+
+  const totalRevenueByCategory = revenueData.reduce((sum, item) => sum + item.revenue, 0);
+
+  const revenueChartData = revenueData.map((item) => ({
+    ...item,
+    share: totalRevenueByCategory > 0 ? Number(((item.revenue / totalRevenueByCategory) * 100).toFixed(1)) : 0
+  }));
+
+  const warrantyData = (warrantyByProject || [])
+    .slice(0, 12)
+    .map((item) => {
+      const progressPct = Math.min(Math.max(Number(item.warrantyProgress) || 0, 0), 100);
+      return {
+        name: item.customer || item.project || item.refNumber,
+        elapsed: Number(progressPct.toFixed(1)),
+        remaining: Number((100 - progressPct).toFixed(1)),
+        daysRemaining: Number(item.daysRemaining) || 0
+      };
+    });
+
+  const peripheralData = (peripheralTypeDistribution || [])
+    .map((item) => ({
+      name: item.peripheralType,
+      count: Number(item.count) || 0,
+      assets: Number(item.assetCount) || 0
+    }))
+    .filter((item) => item.count > 0);
 
   return (
     <div className="dashboard-container">
@@ -361,71 +442,25 @@ const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid">
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Package size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalAssets}</div>
-            <div className="stat-label">Total Assets</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Users size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalCustomers}</div>
-            <div className="stat-label">Total Customers</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <TrendingUp size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{activeAssets}</div>
-            <div className="stat-label">Active Assets</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <BarChart3 size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-              <span style={{ 
-                fontSize: '0.5em', 
-                fontWeight: '900',
-                background: 'rgba(107, 114, 128, 0.12)',
-                border: '1px solid rgba(107, 114, 128, 0.3)',
-                color: '#000000',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                display: 'inline-block',
-                lineHeight: '1.2'
-              }}>RM</span>
-              <span style={{ letterSpacing: '1px' }}>{totalValue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        {statCards.map((item) => {
+          const IconComponent = item.icon;
+          return (
+            <div key={item.key} className={`stat-card stat-card--${item.key}`}>
+              <div className="stat-chip">KPI</div>
+              <div className="stat-icon">
+                <IconComponent size={item.iconSize || 30} />
+              </div>
+              <div className="stat-info">
+                <div className="stat-label">{item.label}</div>
+                <div className="stat-number">
+                  {item.isCurrency && <span className="currency-tag">RM</span>}
+                  <span>{item.value}</span>
+                </div>
+                <div className="stat-meta">{item.meta}</div>
+              </div>
             </div>
-            <div className="stat-label">Total Value</div>
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-icon">
-            <Monitor size={40} />
-          </div>
-          <div className="stat-info">
-            <div className="stat-number">{totalPeripherals}</div>
-            <div className="stat-label">Total Peripherals</div>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
       <div className="dashboard-charts">
@@ -446,24 +481,22 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.deviceAnalysis && (<div className="chart-container">
-            {customerAssetData && customerAssetData.length > 0 ? (
-              customerAssetData.map((item, index) => (
-                <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                  <div className="chart-bar-info">
-                    <span className="customer-name">{item.customer}</span>
-                    <span className="device-count">{item.devices} devices</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div
-                      className="chart-bar"
-                      style={{
-                        width: `${(parseInt(item.devices) / maxDevices) * 100}%`,
-                        backgroundColor: `hsl(${200 + index * 30}, 70%, 50%)`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              ))
+            {deviceAnalysisData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={deviceAnalysisData} layout="vertical" margin={{ top: 8, right: 20, left: 10, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis type="number" tick={{ fill: '#475569', fontSize: 12 }} />
+                    <YAxis type="category" dataKey="name" width={120} tick={{ fill: '#1e293b', fontSize: 12 }} />
+                    <Tooltip formatter={(value) => [`${value} devices`, 'Count']} />
+                    <Bar dataKey="devices" radius={[0, 6, 6, 0]}>
+                      {deviceAnalysisData.map((entry, index) => (
+                        <Cell key={`device-cell-${entry.name}`} fill={chartPalette[index % chartPalette.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">📊</div>
@@ -489,96 +522,41 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.customerDistribution && (<div className="chart-container">
-            {customersByCategory && Object.entries(customersByCategory).length > 0 ? (
-              Object.entries(customersByCategory).map(([customerName, data], index) => (
-                <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                  <div className="chart-bar-info">
-                    <span className="customer-name">{customerName}</span>
-                    <span className="device-count">{data.total} {data.total === 1 ? 'asset' : 'assets'}</span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    width: '100%', 
-                    height: '32px',
-                    borderRadius: '8px', 
-                    overflow: 'hidden',
-                    backgroundColor: '#f3f4f6',
-                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-                  }}>
-                    {data.categories.map((cat, catIndex) => {
-                      const percentage = (cat.count / data.total) * 100;
-                      const color = categoryColors[cat.category] || '#94a3b8';
-                      return (
-                        <div
-                          key={catIndex}
-                          style={{
-                            width: `${percentage}%`,
-                            backgroundColor: color,
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            position: 'relative',
-                            transition: 'all 0.3s ease',
-                            cursor: 'pointer',
-                            minWidth: percentage > 0 ? '2px' : '0',
-                            borderRight: catIndex < data.categories.length - 1 ? '1px solid rgba(255,255,255,0.3)' : 'none'
-                          }}
-                          title={`${cat.category}: ${cat.count} assets (${percentage.toFixed(1)}%)`}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '0.85';
-                            e.currentTarget.style.transform = 'scaleY(1.05)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                            e.currentTarget.style.transform = 'scaleY(1)';
-                          }}
-                        >
-                          {percentage > 8 && (
-                            <span style={{ 
-                              color: 'white', 
-                              fontSize: '11px', 
-                              fontWeight: '700',
-                              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                              userSelect: 'none'
-                            }}>
-                              {cat.count}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
+            {customerDistributionData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={customerDistributionData.slice(0, 8)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={106}
+                      paddingAngle={2}
+                      dataKey="assets"
+                      nameKey="name"
+                    >
+                      {customerDistributionData.slice(0, 8).map((entry, index) => (
+                        <Cell key={`customer-cell-${entry.name}`} fill={chartPalette[index % chartPalette.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, _name, props) => {
+                        const numericValue = Number(value) || 0;
+                        const percentage = customerDistributionTotal > 0
+                          ? ((numericValue / customerDistributionTotal) * 100).toFixed(1)
+                          : '0.0';
+                        return [`${numericValue} assets (${percentage}%)`, props?.payload?.name || 'Customer'];
+                      }}
+                    />
+                    <Legend verticalAlign="bottom" height={32} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">👥</div>
                 <p>No customer distribution data available</p>
-              </div>
-            )}
-            
-            {/* Category Legend */}
-            {customersByCategory && Object.keys(customersByCategory).length > 0 && Object.keys(categoryColors).length > 0 && (
-              <div style={{ 
-                marginTop: '20px', 
-                paddingTop: '15px', 
-                borderTop: '1px solid #e5e7eb',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '12px'
-              }}>
-                {Object.entries(categoryColors).sort(([a], [b]) => a.localeCompare(b)).map(([category, color]) => (
-                  <div key={category} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ 
-                      width: '12px', 
-                      height: '12px', 
-                      backgroundColor: color,
-                      borderRadius: '3px'
-                    }}></div>
-                    <span style={{ fontSize: '13px', color: '#6b7280' }}>{category}</span>
-                  </div>
-                ))}
               </div>
             )}
           </div>)}
@@ -603,24 +581,25 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.modelDistribution && (<div className="chart-container">
-            {modelData && modelData.length > 0 ? (
-              modelData.slice(0, 10).map((item, index) => (
-                <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                  <div className="chart-bar-info">
-                    <span className="customer-name">{item.model}</span>
-                    <span className="device-count">{item.count} {item.count === 1 ? 'asset' : 'assets'}</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div
-                      className="chart-bar"
-                      style={{
-                        width: `${(item.count / maxModels) * 100}%`,
-                        backgroundColor: `hsl(${280 + index * 25}, 65%, 55%)`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              ))
+            {modelDistributionData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={modelDistributionData} margin={{ top: 10, right: 14, left: 2, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="name"
+                      interval={0}
+                      angle={-35}
+                      textAnchor="end"
+                      height={80}
+                      tick={{ fill: '#334155', fontSize: 11 }}
+                    />
+                    <YAxis tick={{ fill: '#475569', fontSize: 12 }} />
+                    <Tooltip formatter={(value) => [`${value} assets`, 'Deployed']} />
+                    <Bar dataKey="assets" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">📦</div>
@@ -647,24 +626,42 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.revenueByCategory && (<div className="chart-container">
-            {revenueByCategory && revenueByCategory.length > 0 ? (
-              revenueByCategory.map((item, index) => (
-                <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                  <div className="chart-bar-info">
-                    <span className="customer-name">{item.category}</span>
-                    <span className="device-count">RM {item.revenue.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({item.count} {item.count === 1 ? 'asset' : 'assets'})</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div
-                      className="chart-bar"
-                      style={{
-                        width: `${(item.revenue / maxRevenue) * 100}%`,
-                        background: `linear-gradient(90deg, hsl(${140 + index * 20}, 70%, 50%), hsl(${140 + index * 20}, 70%, 60%))`
+            {revenueChartData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart data={revenueChartData} layout="vertical" margin={{ top: 8, right: 40, left: 10, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                      type="number"
+                      tickFormatter={(value) => `RM ${Number(value).toLocaleString('en-MY')}`}
+                      tick={{ fill: '#475569', fontSize: 11 }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={130}
+                      tick={{ fill: '#1e293b', fontSize: 12 }}
+                    />
+                    <Tooltip
+                      formatter={(value, name, props) => {
+                        if (name === 'revenue') {
+                          return [`${formatCurrencyCompact(value)} (${props?.payload?.share || 0}%)`, 'Revenue'];
+                        }
+                        return [`${value} assets`, 'Asset Count'];
                       }}
-                    ></div>
-                  </div>
-                </div>
-              ))
+                    />
+                    <Legend formatter={(value) => value === 'revenue' ? 'Revenue' : value} />
+                    <Bar dataKey="revenue" fill="#22c55e" radius={[0, 6, 6, 0]}>
+                      <LabelList
+                        dataKey="share"
+                        position="right"
+                        formatter={(value) => `${value}%`}
+                        style={{ fill: '#334155', fontSize: 11, fontWeight: 600 }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">💰</div>
@@ -691,48 +688,38 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.warrantyTimeline && (<div className="chart-container">
-            {warrantyByProject && warrantyByProject.length > 0 ? (
-              warrantyByProject.map((item, index) => {
-                const progressPct = Number(item.warrantyProgress) || 0;
-                const remainingPct = Number(item.warrantyRemainingPercentage) || 0;
-                const daysLeft = Number(item.daysRemaining) || 0;
-                const isExpired = progressPct >= 100;
-                const isExpiringSoon = remainingPct > 0 && remainingPct < 20;
-                const barColor = isExpired ? '#ef4444' : isExpiringSoon ? '#f59e0b' : '#10b981';
-                
-                return (
-                  <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                    <div className="chart-bar-info">
-                      <span className="customer-name" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                        <span style={{ fontWeight: '600' }}>{item.customer}</span>
-                        <span style={{ fontSize: '0.85em', opacity: 0.7 }}>{item.refNumber} • {item.assetCount} asset{item.assetCount !== 1 ? 's' : ''}</span>
-                      </span>
-                      <span className="device-count" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ 
-                          fontSize: '0.9em',
-                          fontWeight: '700',
-                          color: barColor
-                        }}>
-                          {progressPct.toFixed(1)}%
-                        </span>
-                        <span style={{ fontSize: '0.85em', opacity: 0.8 }}>
-                          {isExpired ? 'Expired' : `${daysLeft} days left`}
-                        </span>
-                      </span>
-                    </div>
-                    <div className="chart-bar-container">
-                      <div
-                        className="chart-bar"
-                        style={{
-                          width: `${Math.min(Math.max(progressPct, 2), 100)}%`,
-                          background: `linear-gradient(90deg, ${barColor}, ${barColor}dd)`,
-                          transition: 'all 0.3s ease'
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })
+            {warrantyData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={warrantyData} margin={{ top: 8, right: 18, left: 8, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis
+                      dataKey="name"
+                      interval={0}
+                      angle={-28}
+                      textAnchor="end"
+                      height={70}
+                      tick={{ fill: '#334155', fontSize: 11 }}
+                    />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fill: '#475569', fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value, name, props) => {
+                        if (name === 'Elapsed') {
+                          return [`${value}%`, name];
+                        }
+                        if (name === 'Remaining') {
+                          return [`${value}%`, name];
+                        }
+                        return [value, name];
+                      }}
+                      labelFormatter={(label) => `Project: ${label}`}
+                    />
+                    <Legend />
+                    <Bar dataKey="elapsed" stackId="warranty" name="Elapsed" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="remaining" stackId="warranty" name="Remaining" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">📅</div>
@@ -758,21 +745,29 @@ const Dashboard = () => {
             </h2>
           </div>
           {expandedCards.peripheralDistribution && (<div className="chart-container">
-            {peripheralTypeDistribution && peripheralTypeDistribution.length > 0 ? (
-              peripheralTypeDistribution.map((item, index) => (
-                <div key={index} className="chart-bar-item" style={{ '--index': index }}>
-                  <div className="chart-bar-info">
-                    <span className="customer-name">{item.peripheralType}</span>
-                    <span className="device-count">{item.count} peripheral{item.count !== 1 ? 's' : ''} ({item.assetCount} asset{item.assetCount !== 1 ? 's' : ''})</span>
-                  </div>
-                  <div className="chart-bar-container">
-                    <div className="chart-bar" style={{
-                      width: `${(item.count / maxPeripheralCount) * 100}%`,
-                      background: `linear-gradient(90deg, hsl(${180 + index * 20}, 65%, 55%), hsl(${180 + index * 20}, 65%, 65%))`
-                    }}></div>
-                  </div>
-                </div>
-              ))
+            {peripheralData.length > 0 ? (
+              <div className="dashboard-chart-wrapper">
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={peripheralData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={105}
+                      innerRadius={58}
+                      dataKey="count"
+                      nameKey="name"
+                      paddingAngle={2}
+                    >
+                      {peripheralData.map((entry, index) => (
+                        <Cell key={`peripheral-cell-${entry.name}`} fill={chartPalette[index % chartPalette.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name, props) => [`${value} peripherals`, props?.payload?.name || name]} />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">🖱️</div>

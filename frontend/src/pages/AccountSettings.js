@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Mail, Lock, Bell, Shield, Palette, Save, Eye, EyeOff, CheckCircle, Users, Plus, X, Edit, Trash2, PenTool } from 'lucide-react';
 import { authenticatedFetch, handleTokenExpiration } from '../utils/authUtils';
 import { API_URL } from '../config/api';
@@ -7,12 +7,14 @@ import toast from '../utils/toast';
 
 const AccountSettings = () => {
   usePageTitle('Account Settings');
+  const BASE_URL = API_URL.replace('/api/v1', '');
   const [activeTab, setActiveTab] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updateMessage, setUpdateMessage] = useState({ type: '', text: '' });
   const [allUsers, setAllUsers] = useState([]);
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraAccountSettingsSortMode') || 'default');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showNewUserPassword, setShowNewUserPassword] = useState(false);
@@ -50,6 +52,13 @@ const AccountSettings = () => {
   const [newUserSignature, setNewUserSignature] = useState('');
   const [hasNewUserSignature, setHasNewUserSignature] = useState(false);
 
+  // Current user signature capture state (Profile tab)
+  const profileSigCanvasRef = useRef(null);
+  const [isDrawingProfileSig, setIsDrawingProfileSig] = useState(false);
+  const [profileSignature, setProfileSignature] = useState('');
+  const [hasProfileSignature, setHasProfileSignature] = useState(false);
+  const [savingProfileSignature, setSavingProfileSignature] = useState(false);
+
   // Project Customer role states
   const [customerList, setCustomerList] = useState([]);
   const [selectedProjectName, setSelectedProjectName] = useState('');
@@ -61,7 +70,8 @@ const AccountSettings = () => {
     email: '',
     username: '',
     department: '',
-    role: ''
+    role: '',
+    signPath: ''
   });
 
   const [securityData, setSecurityData] = useState({
@@ -105,6 +115,45 @@ const AccountSettings = () => {
     }
   }, [showAddUserModal]);
 
+  useEffect(() => {
+    localStorage.setItem('inventraAccountSettingsSortMode', listSortMode);
+  }, [listSortMode]);
+
+  const parseNumeric = (value) => {
+    const parsed = parseInt(String(value || '').replace(/[^0-9.-]/g, ''), 10);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  };
+
+  const sortedAllUsers = useMemo(() => {
+    if (listSortMode === 'default') return allUsers;
+
+    return [...allUsers].sort((a, b) => {
+      const aText = `${a.firstName || ''} ${a.lastName || ''} ${a.username || ''}`.trim().toLowerCase();
+      const bText = `${b.firstName || ''} ${b.lastName || ''} ${b.username || ''}`.trim().toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aText.localeCompare(bText);
+      if (listSortMode === 'alpha-desc') return bText.localeCompare(aText);
+      if (listSortMode === 'num-asc') return parseNumeric(a.username) - parseNumeric(b.username);
+      if (listSortMode === 'num-desc') return parseNumeric(b.username) - parseNumeric(a.username);
+      return 0;
+    });
+  }, [allUsers, listSortMode]);
+
+  const sortedCustomerList = useMemo(() => {
+    if (listSortMode === 'default') return customerList;
+
+    return [...customerList].sort((a, b) => {
+      const aText = String(a || '').toLowerCase();
+      const bText = String(b || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aText.localeCompare(bText);
+      if (listSortMode === 'alpha-desc') return bText.localeCompare(aText);
+      if (listSortMode === 'num-asc') return parseNumeric(a) - parseNumeric(b);
+      if (listSortMode === 'num-desc') return parseNumeric(b) - parseNumeric(a);
+      return 0;
+    });
+  }, [customerList, listSortMode]);
+
   // Initialize signature canvas when Add User modal opens
   useEffect(() => {
     if (showAddUserModal && newUserSigCanvasRef.current) {
@@ -122,6 +171,23 @@ const AccountSettings = () => {
       setNewUserSignature('');
     }
   }, [showAddUserModal]);
+
+  useEffect(() => {
+    if (activeTab !== 'profile' || !profileSigCanvasRef.current) return;
+
+    const canvas = profileSigCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    canvas.width = 600;
+    canvas.height = 180;
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    setHasProfileSignature(false);
+    setProfileSignature('');
+  }, [activeTab]);
 
   const fetchUserProfile = async () => {
     try {
@@ -141,7 +207,8 @@ const AccountSettings = () => {
           email: data.data.email || '',
           username: data.data.username || '',
           department: data.data.department || '',
-          role: data.data.role || ''
+          role: data.data.role || '',
+          signPath: data.data.signPath || ''
         };
         console.log('✅ Setting profile data:', profileInfo);
         setProfileData(profileInfo);
@@ -424,6 +491,104 @@ const AccountSettings = () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasNewUserSignature(false);
     setNewUserSignature('');
+  };
+
+  const getPointFromEvent = (canvas, e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDrawingProfileSignature = (e) => {
+    e.preventDefault();
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const { x, y } = getPointFromEvent(canvas, e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawingProfileSig(true);
+    setHasProfileSignature(true);
+  };
+
+  const drawProfileSignature = (e) => {
+    if (!isDrawingProfileSig) return;
+    e.preventDefault();
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const { x, y } = getPointFromEvent(canvas, e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawingProfileSignature = () => {
+    if (isDrawingProfileSig && profileSigCanvasRef.current) {
+      setProfileSignature(profileSigCanvasRef.current.toDataURL('image/png'));
+    }
+    setIsDrawingProfileSig(false);
+  };
+
+  const clearProfileSignature = () => {
+    const canvas = profileSigCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasProfileSignature(false);
+    setProfileSignature('');
+  };
+
+  const handleSaveProfileSignature = async () => {
+    if (!hasProfileSignature || !profileSignature) {
+      setUpdateMessage({ type: 'error', text: 'Please draw your signature first.' });
+      return;
+    }
+
+    try {
+      setSavingProfileSignature(true);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          signature: profileSignature
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to save signature');
+      }
+
+      setProfileData((prev) => ({
+        ...prev,
+        signPath: data.data?.signPath || prev.signPath
+      }));
+
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      localStorage.setItem('userInfo', JSON.stringify({ ...userInfo, ...(data.data || {}) }));
+
+      setUpdateMessage({ type: 'success', text: 'Staff signature saved. PM forms will use it automatically.' });
+      setHasProfileSignature(false);
+      setProfileSignature('');
+    } catch (error) {
+      setUpdateMessage({ type: 'error', text: error.message || 'Failed to save signature.' });
+    } finally {
+      setSavingProfileSignature(false);
+    }
   };
 
   const handleEditUser = (user) => {
@@ -718,6 +883,65 @@ const AccountSettings = () => {
                     />
                   </div>
 
+                  <div className="form-group" style={{ marginTop: '18px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <PenTool size={16} /> Staff Signature (for PM auto-submit)
+                    </label>
+
+                    {profileData.signPath && (
+                      <div style={{ marginBottom: '10px' }}>
+                        <div style={{ fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>Current saved signature</div>
+                        <img
+                          src={`${BASE_URL}/${profileData.signPath}`}
+                          alt="Current staff signature"
+                          style={{ border: '1px solid #d1d5db', borderRadius: '8px', background: '#fff', padding: '6px', maxHeight: '72px' }}
+                        />
+                      </div>
+                    )}
+
+                    <canvas
+                      ref={profileSigCanvasRef}
+                      style={{
+                        width: '100%',
+                        maxWidth: '600px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        background: '#fff',
+                        touchAction: 'none'
+                      }}
+                      onMouseDown={startDrawingProfileSignature}
+                      onMouseMove={drawProfileSignature}
+                      onMouseUp={stopDrawingProfileSignature}
+                      onMouseLeave={stopDrawingProfileSignature}
+                      onTouchStart={startDrawingProfileSignature}
+                      onTouchMove={drawProfileSignature}
+                      onTouchEnd={stopDrawingProfileSignature}
+                    />
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={clearProfileSignature}
+                        style={{ border: '1px solid #cbd5e1', background: '#fff', color: '#1f2937' }}
+                      >
+                        Clear Signature
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={handleSaveProfileSignature}
+                        disabled={!hasProfileSignature || savingProfileSignature}
+                        style={{ opacity: (!hasProfileSignature || savingProfileSignature) ? 0.6 : 1 }}
+                      >
+                        {savingProfileSignature ? 'Saving Signature...' : 'Save Staff Signature'}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+                      Recipient signatures are still captured per form. Staff signature is auto-applied from this profile setting.
+                    </div>
+                  </div>
+
                   <button type="submit" className="btn btn-primary">
                     <Save size={16} style={{ marginRight: '5px' }} />
                     Update Profile
@@ -969,21 +1193,43 @@ const AccountSettings = () => {
               ) : (
                 // Admin view - full access
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '12px', flexWrap: 'wrap' }}>
                     <div>
                       <h2 style={{ margin: 0 }}>User Management</h2>
                       <p style={{ color: '#666', marginTop: '5px', marginBottom: 0 }}>
                         View all registered users in the system
                       </p>
                     </div>
-                    <button
-                      onClick={() => setShowAddUserModal(true)}
-                      className="btn btn-primary"
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <Plus size={18} />
-                      Add New User
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#4b5563', fontWeight: '600' }}>List Order</span>
+                      <select
+                        value={listSortMode}
+                        onChange={(e) => setListSortMode(e.target.value)}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: 'white',
+                          fontSize: '0.9rem',
+                          color: '#374151',
+                          minWidth: '130px'
+                        }}
+                      >
+                        <option value="default">Default</option>
+                        <option value="alpha-asc">A-Z</option>
+                        <option value="alpha-desc">Z-A</option>
+                        <option value="num-asc">0-9</option>
+                        <option value="num-desc">9-0</option>
+                      </select>
+                      <button
+                        onClick={() => setShowAddUserModal(true)}
+                        className="btn btn-primary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <Plus size={18} />
+                        Add New User
+                      </button>
+                    </div>
                   </div>
                   
                   {loadingUsers ? (
@@ -1074,14 +1320,14 @@ const AccountSettings = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {allUsers.length === 0 ? (
+                      {sortedAllUsers.length === 0 ? (
                         <tr>
                           <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
                             No users found
                           </td>
                         </tr>
                       ) : (
-                        allUsers.map((user) => (
+                        sortedAllUsers.map((user) => (
                           <tr key={user.userId} style={{ 
                             borderBottom: '1px solid #f0f0f0',
                             transition: 'background-color 0.2s'
@@ -1417,8 +1663,8 @@ const AccountSettings = () => {
                     {loadingCustomers ? (
                       <option disabled>Loading customers...</option>
                     ) : (
-                      customerList && customerList.length > 0 ? (
-                        customerList.map((customer, index) => (
+                      sortedCustomerList && sortedCustomerList.length > 0 ? (
+                        sortedCustomerList.map((customer, index) => (
                           <option key={index} value={customer}>
                             {customer}
                           </option>
@@ -1692,8 +1938,8 @@ const AccountSettings = () => {
                     {loadingCustomers ? (
                       <option disabled>Loading customers...</option>
                     ) : (
-                      customerList && customerList.length > 0 ? (
-                        customerList.map((customer, index) => (
+                      sortedCustomerList && sortedCustomerList.length > 0 ? (
+                        sortedCustomerList.map((customer, index) => (
                           <option key={index} value={customer}>
                             {customer}
                           </option>

@@ -18,6 +18,7 @@ const historyLogRoutes = require('./historyLog');
 const recipientRoutes = require('./recipients');
 const solutionPrincipalRoutes = require('./solutionPrincipal');
 const activityRoutes = require('./activity');
+const pmReportRoutes = require('./pmReports');
 // Maintenance routes moved to lazy load to avoid circular dependency
 // const maintenanceRoutes = require('./maintenance');
 
@@ -38,6 +39,7 @@ router.use('/history-logs', historyLogRoutes);
 router.use('/recipients', recipientRoutes);
 router.use('/solution-principals', solutionPrincipalRoutes);
 router.use('/activity', activityRoutes);
+router.use('/pm-reports', pmReportRoutes);
 // Maintenance route will be mounted after database initialization
 // router.use('/maintenance', maintenanceRoutes);
 

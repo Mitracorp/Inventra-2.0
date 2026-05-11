@@ -102,6 +102,19 @@ const AssetDetail = () => {
     }
   };
 
+  const handleStartPMNow = () => {
+    if (!assetData) return;
+
+    const query = new URLSearchParams();
+    if (assetData.Customer_Name) query.set('customer', assetData.Customer_Name);
+    if (assetData.Branch) query.set('branch', assetData.Branch);
+    if (assetData.Asset_ID) query.set('assetId', String(assetData.Asset_ID));
+    const searchHint = assetData.Asset_Tag_ID || assetData.Asset_Serial_Number || '';
+    if (searchHint) query.set('search', searchHint);
+
+    navigate(`/maintenance?${query.toString()}`);
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -315,6 +328,10 @@ const AssetDetail = () => {
       </div>
     );
   }
+
+  const pmCompletedCount = pmRecords.filter((pm) => String(pm.Status || '').toLowerCase() === 'completed').length;
+  const hasPM = pmRecords.length > 0;
+  const latestPMDate = hasPM ? pmRecords[pmRecords.length - 1]?.PM_Date : null;
 
   return (
     <div className="page-container">
@@ -873,6 +890,55 @@ const AssetDetail = () => {
       </div>
 
       {/* Preventive Maintenance Information */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: '18px',
+          paddingBottom: '14px',
+          borderBottom: '2px solid #4f46e5',
+          flexWrap: 'wrap'
+        }}>
+          <h3 style={{ margin: 0, color: '#1f2937', fontSize: '1.2rem' }}>Service Completion & Quick Actions</h3>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleStartPMNow}
+              className="btn btn-primary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Wrench size={16} />
+              PM Now
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
+          <div style={{ border: '1px solid #d1fae5', borderRadius: '10px', padding: '14px', background: '#f0fdf4' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span style={{ fontWeight: 700, color: '#166534' }}>PM Status</span>
+              <span style={{
+                background: hasPM ? '#16a34a' : '#9ca3af',
+                color: 'white',
+                borderRadius: '999px',
+                padding: '2px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 700
+              }}>
+                {hasPM ? 'DONE' : 'PENDING'}
+              </span>
+            </div>
+            <div style={{ color: '#14532d', fontSize: '0.92rem', lineHeight: 1.7 }}>
+              <div>Total records: <strong>{pmRecords.length}</strong></div>
+              <div>Completed: <strong>{pmCompletedCount}</strong></div>
+              <div>Latest PM: <strong>{latestPMDate ? formatDate(latestPMDate) : 'N/A'}</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: '20px' }}>
         <div style={{ 
           display: 'flex', 

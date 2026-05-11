@@ -14,6 +14,7 @@ class SolutionPrincipal {
           SP_ID,
           SP_Name
         FROM SOLUTION_PRINCIPAL
+        WHERE deleted_at IS NULL
         ORDER BY SP_ID ASC
       `);
       return rows;
@@ -31,7 +32,7 @@ class SolutionPrincipal {
           SP_ID,
           SP_Name
         FROM SOLUTION_PRINCIPAL
-        WHERE SP_ID = ?
+        WHERE SP_ID = ? AND deleted_at IS NULL
       `, [id]);
       return rows[0] || null;
     } catch (error) {
@@ -88,17 +89,33 @@ class SolutionPrincipal {
   static async delete(id) {
     try {
       const [result] = await pool.execute(`
-        DELETE FROM SOLUTION_PRINCIPAL
-        WHERE SP_ID = ?
+        UPDATE SOLUTION_PRINCIPAL
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE SP_ID = ? AND deleted_at IS NULL
       `, [id]);
 
       if (result.affectedRows === 0) {
         throw new Error('Solution Principal not found');
       }
 
-      return { success: true, message: 'Solution Principal deleted successfully' };
+      return { success: true, message: 'Solution Principal moved to trash successfully' };
     } catch (error) {
       console.error('Error in SolutionPrincipal.delete:', error);
+      throw error;
+    }
+  }
+
+  static async restore(id) {
+    try {
+      const [result] = await pool.execute(`
+        UPDATE SOLUTION_PRINCIPAL
+        SET deleted_at = NULL
+        WHERE SP_ID = ? AND deleted_at IS NOT NULL
+      `, [id]);
+
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error in SolutionPrincipal.restore:', error);
       throw error;
     }
   }

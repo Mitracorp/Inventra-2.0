@@ -47,15 +47,20 @@ class PDFGenerator {
      */
     getLogoBase64() {
         try {
-            const logoPath = path.join(__dirname, '../../frontend/public/logo.png');
-            if (fsSync.existsSync(logoPath)) {
-                const logoBuffer = fsSync.readFileSync(logoPath);
-                const logoBase64 = logoBuffer.toString('base64');
-                return `data:image/png;base64,${logoBase64}`;
-            } else {
-                console.warn('Logo file not found at:', logoPath);
-                return '';
+            const candidatePaths = [
+                process.env.MITRACORP_LOGO_PATH,
+                path.join(__dirname, '../../frontend/src/assets/MitracorpLogo_full.png'),
+                path.join(__dirname, '../../frontend/public/logo.png')
+            ].filter(Boolean);
+
+            for (const logoPath of candidatePaths) {
+                if (fsSync.existsSync(logoPath)) {
+                    const logoBuffer = fsSync.readFileSync(logoPath);
+                    return `data:image/png;base64,${logoBuffer.toString('base64')}`;
+                }
             }
+
+            return '';
         } catch (error) {
             console.error('Error reading logo file:', error);
             return '';

@@ -19,7 +19,7 @@ This document provides a brief, high-level overview of Inventra’s architecture
 - Access: Backend connects using environment variables in [.env.production](.env.production) and handles queries through model/service layers.
 
 ## Runtime & Configuration
-- Environment: `NODE_ENV=production`, backend port `PORT=5000`.
+- Environment: `NODE_ENV=development`, backend port `PORT=5000`.
 - URLs & CORS: `FRONTEND_URL` and `CORS_ORIGIN` restrict allowed origins.
 - Secrets: `SESSION_SECRET`, `JWT_SECRET` (must be strong, private values).
 - Uploads: `UPLOAD_DIR` and `MAX_FILE_SIZE` control file storage limits.

@@ -251,12 +251,6 @@ const CSVImport = () => {
       // If row has peripherals array (grouped data), validate peripheral data
       if (row.peripherals && Array.isArray(row.peripherals)) {
         row.peripherals.forEach((peripheral, pIndex) => {
-          if (peripheral.peripheral_name && !peripheral.serial_code) {
-            errors.push({
-              field: `peripherals[${pIndex}].serial_code`,
-              message: 'Peripheral serial code is required when peripheral name is provided'
-            });
-          }
         });
       }
 

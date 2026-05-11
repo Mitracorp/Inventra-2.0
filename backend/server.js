@@ -7,7 +7,20 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-require('dotenv').config({ path: __dirname + '/.env' });
+const fs = require('fs');
+
+const envCandidates = [
+  path.join(__dirname, '.env.local'),
+  path.join(__dirname, `.env.${process.env.NODE_ENV || 'development'}`),
+  path.join(__dirname, '.env')
+];
+
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+if (envPath) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 console.log('✅ Environment loaded');
 
 const logger = require('./utils/logger');
@@ -41,7 +54,8 @@ console.log(`📍 Port set to: ${PORT}`);
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable CSP for React app
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(compression());
 
@@ -71,22 +85,16 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-      'http://192.168.56.1:3000',
-      'http://172.16.0.2:3000',
-      'https://inventra.ivms2006.com',
-      'http://inventra.ivms2006.com',
-      'https://test.inventra.ivms2006.com',
-      'http://test.inventra.ivms2006.com',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
     // Allow any origin from local network in development
     if (process.env.NODE_ENV !== 'production' && origin) {
-      const isLocalNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+):3000$/.test(origin);
-      if (isLocalNetwork) {
+      const isLocalhost = /^http:\/\/localhost:3000$/.test(origin);
+      if (isLocalhost) {
         return callback(null, true);
       }
-    }
+  }
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -106,8 +114,12 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files for uploads
-app.use('/uploads', express.static('uploads'));
+// Static files for uploads (logos/signatures/PDFs accessed from frontend origin)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Serve React static files in production
 if (process.env.NODE_ENV === 'production') {
@@ -120,6 +132,8 @@ if (process.env.NODE_ENV === 'production') {
 
 // API routes
 app.use('/api/v1', routes);
+// Backward-compatibility for clients still using /api/* without version prefix
+app.use('/api', routes);
 
 // Debug endpoint - Check which database is being used
 app.get('/api/debug/env', (req, res) => {

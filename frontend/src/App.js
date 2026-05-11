@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { PublicClientApplication } from '@azure/msal-browser';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -12,7 +13,10 @@ import AssetDetail from './pages/AssetDetail';
 import PreventiveMaintenance from './pages/PreventiveMaintenance';
 import PMDetail from './pages/PMDetail';
 import PMImport from './pages/PMImport';
+import PMBulkRecipientOps from './pages/PMBulkRecipientOps';
 import PMSchedule from './pages/PMSchedule';
+import PMOverviewPage from './pages/PMOverviewPage';
+import PMReports from './pages/PMReports';
 import AccountSettings from './pages/AccountSettings';
 import AuditLog from './pages/AuditLog';
 import SolutionPrincipal from './pages/SolutionPrincipal';
@@ -27,6 +31,21 @@ import apiService from './services/apiService';
 import inactivityMonitor from './utils/inactivityMonitor';
 import { isAuthenticated as checkAuth, setupGlobalAuthInterceptor } from './utils/authUtils';
 
+const azureClientId = process.env.REACT_APP_AZURE_CLIENT_ID;
+const azureAuthority = process.env.REACT_APP_AZURE_AUTHORITY || 'https://login.microsoftonline.com/common';
+const azureRedirectUri = process.env.REACT_APP_AZURE_REDIRECT_URI || window.location.origin;
+
+const msalInstance = azureClientId ? new PublicClientApplication({
+  auth: {
+    clientId: azureClientId,
+    authority: azureAuthority,
+    redirectUri: azureRedirectUri
+  },
+  cache: {
+    cacheLocation: 'sessionStorage'
+  }
+}) : null;
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [assets, setAssets] = useState([]);
@@ -34,23 +53,107 @@ function App() {
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
 
   useEffect(() => {
-    // Setup global auth interceptor to catch 401 responses everywhere
-    setupGlobalAuthInterceptor();
-    
-    // Check if user is authenticated on app load (checks token expiration)
-    console.log('🔍 App.js: Checking authentication on load...');
-    const isUserAuthenticated = checkAuth();
-    
-    if (isUserAuthenticated) {
-      console.log('✅ User is authenticated with valid token');
-      setIsAuthenticated(true);
-      // Start inactivity monitoring
-      inactivityMonitor.start();
-    } else {
-      console.log('❌ User is not authenticated or token expired');
-      setIsAuthenticated(false);
-      // Token will be cleared by checkAuth() if expired
-    }
+    const initializeApp = async () => {
+      // Step 0: Initialize MSAL if configured
+      if (msalInstance) {
+        try {
+          await msalInstance.initialize();
+          console.log('✅ MSAL initialized');
+        } catch (err) {
+          console.error('❌ MSAL initialization error:', err);
+        }
+      }
+
+      // Step 1: ALWAYS try to handle Microsoft redirect callback (whether flag is set or not)
+      // This handles the case where user comes back from Microsoft auth
+      if (msalInstance) {
+        try {
+          console.log('🔄 Checking for Microsoft auth redirect...');
+          const loginResult = await msalInstance.handleRedirectPromise();
+          
+          if (loginResult) {
+            console.log('✅ Microsoft auth redirect detected, processing token...');
+            sessionStorage.removeItem('msalLoginInProgress');
+            
+            const idToken = loginResult.idToken;
+            if (!idToken) {
+              throw new Error('Microsoft login did not return an ID token');
+            }
+
+            // Send token to backend
+            const candidateApiUrls = Array.from(new Set([
+              process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
+              'http://localhost:5000/api/v1'
+            ]));
+
+            console.log('📤 Sending idToken to backend...');
+            let response = null;
+            let lastError = null;
+            
+            for (const apiUrl of candidateApiUrls) {
+              try {
+                response = await fetch(`${apiUrl}/auth/microsoft-login`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ idToken })
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log('✅ Backend response:', data);
+                  
+                  if (data.success) {
+                    localStorage.setItem('authToken', data.data.token);
+                    localStorage.setItem('userInfo', JSON.stringify(data.data.user));
+                    setIsAuthenticated(true);
+                    inactivityMonitor.start();
+                    console.log('✅ User logged in successfully via Microsoft');
+                    return; // Early exit on success
+                  } else {
+                    lastError = data.message || 'Backend returned success=false';
+                    console.error('❌ Backend error:', lastError);
+                  }
+                } else {
+                  lastError = `HTTP ${response.status}`;
+                }
+                break; // Try next URL only on network error
+              } catch (e) {
+                lastError = e.message;
+                console.warn(`⚠️  API URL failed: ${apiUrl} - ${lastError}`);
+                continue; // Try next URL
+              }
+            }
+            
+            if (!response || !response.ok) {
+              throw new Error(`Backend authentication failed: ${lastError}`);
+            }
+          } else {
+            console.log('ℹ️  No Microsoft redirect detected');
+          }
+        } catch (err) {
+          console.error('❌ Error handling Microsoft redirect:', err);
+          sessionStorage.removeItem('msalLoginInProgress');
+        }
+      }
+
+      // Step 2: Setup global auth interceptor to catch 401 responses everywhere
+      setupGlobalAuthInterceptor();
+      
+      // Step 3: Check if user is already authenticated on app load (checks token expiration)
+      console.log('🔍 App.js: Checking authentication on load...');
+      const isUserAuthenticated = checkAuth();
+      
+      if (isUserAuthenticated) {
+        console.log('✅ User is authenticated with valid token');
+        setIsAuthenticated(true);
+        inactivityMonitor.start();
+      } else {
+        console.log('ℹ️  User is not authenticated');
+        setIsAuthenticated(false);
+      }
+    };
+
+    initializeApp();
     
     // Cleanup on unmount
     return () => {
@@ -128,7 +231,10 @@ function App() {
               <Route path="/maintenance" element={<PreventiveMaintenance assets={assets} />} />
               <Route path="/pm" element={<PreventiveMaintenance assets={assets} />} />
               <Route path="/pm-schedule" element={<PMSchedule />} />
+              <Route path="/maintenance/overview/:type" element={<PMOverviewPage />} />
               <Route path="/pm-import" element={<PMImport />} />
+              <Route path="/pm-bulk-recipient" element={<PMBulkRecipientOps />} />
+              <Route path="/pm-reports" element={<PMReports />} />
               <Route path="/maintenance/detail/:pmId" element={<PMDetail />} />
               <Route path="/models" element={<Models />} />
               <Route path="/models/specs" element={<ModelSpecifications />} />

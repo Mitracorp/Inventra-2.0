@@ -1,6 +1,20 @@
 const mysql = require('mysql2/promise');
 const logger = require('../utils/logger');
-require('dotenv').config({ path: __dirname + '/../.env' });
+const fs = require('fs');
+const path = require('path');
+
+const envCandidates = [
+  path.join(__dirname, '../.env.local'),
+  path.join(__dirname, `../.env.${process.env.NODE_ENV || 'development'}`),
+  path.join(__dirname, '../.env')
+];
+
+const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+if (envPath) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
 
 // Database connection configuration
 const dbConfig = {
@@ -32,8 +46,14 @@ const testConnection = async () => {
     connection.release();
     return true;
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    logger.error('❌ Database connection failed:', error.message);
+    const details = {
+      code: error.code,
+      errno: error.errno,
+      sqlState: error.sqlState,
+      message: error.message || '(empty message)'
+    };
+    console.error('❌ Database connection failed:', details);
+    logger.error('❌ Database connection failed:', details);
     return false;
   }
 };

@@ -5,7 +5,72 @@ const pdfGenerator = require('../utils/pdfGenerator');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const archiver = require('archiver');
 const { pool } = require('../config/database');
+const { logPMChange } = require('../utils/auditLogger');
+
+const BULK_PDF_MAX_RECORDS = 80;
+
+const resolveAbsoluteFilePath = (filePath) => {
+  if (!filePath) return null;
+  return path.isAbsolute(filePath)
+    ? filePath
+    : path.join(__dirname, '..', filePath);
+};
+
+const ensurePMPdfPath = async (pmRecord) => {
+  if (pmRecord?.file_path && await pdfGenerator.checkFileExists(pmRecord.file_path)) {
+    return {
+      absolutePath: resolveAbsoluteFilePath(pmRecord.file_path),
+      filename: path.basename(pmRecord.file_path)
+    };
+  }
+
+  const generated = await pdfGenerator.generatePMReport(pmRecord.PM_ID);
+  if (!generated?.success || !generated.filepath) {
+    throw new Error(`Failed to generate PM PDF for PM_ID ${pmRecord.PM_ID}`);
+  }
+
+  await pdfGenerator.updateFilePath(pmRecord.PM_ID, generated.filepath);
+  return {
+    absolutePath: resolveAbsoluteFilePath(generated.filepath),
+    filename: generated.filename || path.basename(generated.filepath)
+  };
+};
+
+const streamBulkZip = async (res, pmRecords) => {
+  const filename = `PM-Forms-Bulk-${Date.now()}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+  const archive = archiver('zip', { zlib: { level: 9 } });
+
+  archive.on('warning', (err) => {
+    logger.warn('ZIP warning during bulk download:', err.message);
+  });
+
+  archive.on('error', (err) => {
+    logger.error('ZIP error during bulk download:', err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Failed to create ZIP archive',
+        message: err.message
+      });
+    }
+  });
+
+  archive.pipe(res);
+
+  for (let index = 0; index < pmRecords.length; index += 1) {
+    const pmRecord = pmRecords[index];
+    const { absolutePath, filename: sourceName } = await ensurePMPdfPath(pmRecord);
+    const entryName = `${String(index + 1).padStart(3, '0')}_PM_${pmRecord.PM_ID}_${sourceName}`;
+    archive.file(absolutePath, { name: entryName });
+  }
+
+  await archive.finalize();
+};
 
 /**
  * Get all PM records
@@ -243,6 +308,336 @@ const getPMByCustomerAndBranch = async (req, res, next) => {
     logger.error('Error in getPMByCustomerAndBranch:', error);
     res.status(500).json({
       error: 'Failed to fetch PM records',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Get recipients summary for bulk PM operations
+ */
+const getRecipientsForBulkOps = async (req, res) => {
+  try {
+    const [rows] = await pool.execute(`
+      SELECT
+        r.Recipients_ID,
+        r.Recipient_Name,
+        r.Department,
+        COUNT(DISTINCT a.Asset_ID) AS Asset_Count,
+        COUNT(pm.PM_ID) AS PM_Count,
+        SUM(
+          CASE
+            WHEN pm.PM_ID IS NOT NULL
+              AND LOWER(COALESCE(pm.Status, '')) <> 'completed'
+              AND (pm.signature_path IS NULL OR pm.signature_path = '')
+            THEN 1
+            ELSE 0
+          END
+        ) AS Unsigned_PM_Count
+      FROM RECIPIENTS r
+      INNER JOIN ASSET a ON a.Recipients_ID = r.Recipients_ID
+      LEFT JOIN PMAINTENANCE pm ON pm.Asset_ID = a.Asset_ID AND pm.deleted_at IS NULL
+      GROUP BY r.Recipients_ID, r.Recipient_Name, r.Department
+      ORDER BY r.Recipient_Name ASC
+    `);
+
+    res.status(200).json({
+      success: true,
+      data: rows
+    });
+  } catch (error) {
+    logger.error('Error in getRecipientsForBulkOps:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recipients for bulk operations',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Get recipient assets and unsigned PMs for bulk operations
+ */
+const getRecipientAssetsForBulkOps = async (req, res) => {
+  try {
+    const recipientId = Number(req.params.recipientId);
+
+    if (!recipientId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid recipientId is required'
+      });
+    }
+
+    const [recipientRows] = await pool.execute(
+      `SELECT Recipients_ID, Recipient_Name, Department FROM RECIPIENTS WHERE Recipients_ID = ?`,
+      [recipientId]
+    );
+
+    const [assets] = await pool.execute(`
+      SELECT 
+        a.Asset_ID,
+        a.Asset_Tag_ID,
+        a.Asset_Serial_Number,
+        a.Item_Name,
+        c.Category,
+        COUNT(pm.PM_ID) AS PM_Count
+      FROM ASSET a
+      LEFT JOIN CATEGORY c ON a.Category_ID = c.Category_ID
+      LEFT JOIN PMAINTENANCE pm ON a.Asset_ID = pm.Asset_ID AND pm.deleted_at IS NULL
+      WHERE a.Recipients_ID = ?
+      GROUP BY a.Asset_ID, a.Asset_Tag_ID, a.Asset_Serial_Number, a.Item_Name, c.Category
+      ORDER BY a.Asset_Tag_ID ASC
+    `, [recipientId]);
+
+    const [unsignedPMsRaw] = await pool.execute(`
+      SELECT
+        pm.PM_ID,
+        pm.Asset_ID,
+        DATE_FORMAT(pm.PM_Date, '%Y-%m-%d') AS PM_Date,
+        pm.Status AS PM_Status,
+        a.Asset_Tag_ID,
+        a.Asset_Serial_Number,
+        a.Item_Name
+      FROM PMAINTENANCE pm
+      INNER JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+      WHERE a.Recipients_ID = ?
+        AND pm.deleted_at IS NULL
+        AND LOWER(COALESCE(pm.Status, '')) <> 'completed'
+        AND (pm.signature_path IS NULL OR pm.signature_path = '')
+      ORDER BY pm.PM_Date DESC, pm.PM_ID DESC
+    `, [recipientId]);
+
+    let unsignedPMs = unsignedPMsRaw;
+    if (unsignedPMsRaw.length > 0) {
+      const assetIds = [...new Set(unsignedPMsRaw.map(pm => pm.Asset_ID))];
+      const placeholders = assetIds.map(() => '?').join(',');
+      
+      const [allAssetPMs] = await pool.query(`
+        SELECT Asset_ID, PM_ID 
+        FROM PMAINTENANCE 
+        WHERE Asset_ID IN (${placeholders}) AND deleted_at IS NULL
+        ORDER BY PM_Date ASC, PM_ID ASC
+      `, assetIds);
+
+      const pmSequenceMap = {};
+      const assetCounters = {};
+      
+      allAssetPMs.forEach(pm => {
+        if (!assetCounters[pm.Asset_ID]) assetCounters[pm.Asset_ID] = 0;
+        const seq = (assetCounters[pm.Asset_ID] % 2) + 1;
+        pmSequenceMap[pm.PM_ID] = seq;
+        assetCounters[pm.Asset_ID]++;
+      });
+
+      unsignedPMs = unsignedPMsRaw.map(pm => ({
+        ...pm,
+        PM_Sequence: pmSequenceMap[pm.PM_ID] || 1
+      }));
+    }
+
+    res.status(200).json({
+      success: true,
+
+      data: {
+        recipient: recipientRows[0],
+        assets,
+        unsignedPMs
+      }
+    });
+  } catch (error) {
+    logger.error('Error in getRecipientAssetsForBulkOps:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch recipient assets for bulk operations',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Bulk create PM records for selected assets of a recipient
+ */
+const bulkCreatePMByRecipient = async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const { recipientId, assetIds, pmDate, remarks } = req.body;
+    const parsedRecipientId = Number(recipientId);
+    const parsedAssetIds = Array.isArray(assetIds)
+      ? assetIds.map((id) => Number(id)).filter(Boolean)
+      : [];
+
+    if (!parsedRecipientId || !pmDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'recipientId and pmDate are required'
+      });
+    }
+
+    const [recipientAssets] = await connection.execute(
+      `SELECT Asset_ID FROM ASSET WHERE Recipients_ID = ?`,
+      [parsedRecipientId]
+    );
+
+    const recipientAssetIds = recipientAssets.map((row) => row.Asset_ID);
+    if (recipientAssetIds.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No assets found for this recipient'
+      });
+    }
+
+    const selectedAssetIds = parsedAssetIds.length > 0
+      ? recipientAssetIds.filter((id) => parsedAssetIds.includes(id))
+      : recipientAssetIds;
+
+    if (selectedAssetIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid assets selected for this recipient'
+      });
+    }
+
+    const createdBy = req.user?.userId || req.user?.User_ID || null;
+    const created = [];
+    const skipped = [];
+
+    await connection.beginTransaction();
+
+    for (const assetId of selectedAssetIds) {
+      const [existing] = await connection.execute(
+        `SELECT PM_ID FROM PMAINTENANCE WHERE Asset_ID = ? AND PM_Date = ? AND deleted_at IS NULL LIMIT 1`,
+        [assetId, pmDate]
+      );
+
+      if (existing.length > 0) {
+        skipped.push({ assetId, reason: 'PM already exists for selected date' });
+        continue;
+      }
+
+      const [insertResult] = await connection.execute(
+        `INSERT INTO PMAINTENANCE (Asset_ID, PM_Date, Remarks, Status, Created_By)
+         VALUES (?, ?, ?, 'In-Process', ?)`,
+        [assetId, pmDate, remarks || null, createdBy]
+      );
+
+      created.push({
+        assetId,
+        pmId: insertResult.insertId
+      });
+    }
+
+    await connection.commit();
+
+    res.status(201).json({
+      success: true,
+      message: `Bulk PM creation completed. Created ${created.length}, skipped ${skipped.length}.`,
+      data: {
+        created,
+        skipped,
+        totalSelected: selectedAssetIds.length
+      }
+    });
+  } catch (error) {
+    await connection.rollback();
+    logger.error('Error in bulkCreatePMByRecipient:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to bulk create PM records',
+      message: error.message
+    });
+  } finally {
+    connection.release();
+  }
+};
+
+/**
+ * Bulk sign PM records using one signature image
+ */
+const bulkSignPM = async (req, res) => {
+  try {
+    const { pmIds, signature, bagiPihak } = req.body;
+
+    if (!Array.isArray(pmIds) || pmIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'pmIds must be a non-empty array'
+      });
+    }
+
+    if (!signature || !signature.startsWith('data:image/png;base64,')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid Base64 PNG signature is required'
+      });
+    }
+
+    const normalizedPmIds = pmIds.map((id) => Number(id)).filter(Boolean);
+    if (normalizedPmIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid PM IDs provided'
+      });
+    }
+
+    const base64Data = signature.replace(/^data:image\/png;base64,/, '');
+    const uploadDir = path.join(__dirname, '../uploads/signature');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const filename = `bulk_signature_${timestamp}.png`;
+    const filePath = path.join(uploadDir, filename);
+    fs.writeFileSync(filePath, base64Data, 'base64');
+
+    const dbFilePath = `uploads/signature/${filename}`;
+    const signedAt = new Date();
+    const placeholders = normalizedPmIds.map(() => '?').join(',');
+
+    let query;
+    let params;
+
+    if (bagiPihak && String(bagiPihak).trim().length > 0) {
+      query = `
+        UPDATE PMAINTENANCE
+        SET signature_path = ?, signed_at = ?, Status = 'Completed', BagiPihak = ?
+        WHERE PM_ID IN (${placeholders})
+          AND deleted_at IS NULL
+          AND (signature_path IS NULL OR signature_path = '')
+      `;
+      params = [dbFilePath, signedAt, String(bagiPihak).trim(), ...normalizedPmIds];
+    } else {
+      query = `
+        UPDATE PMAINTENANCE
+        SET signature_path = ?, signed_at = ?, Status = 'Completed'
+        WHERE PM_ID IN (${placeholders})
+          AND deleted_at IS NULL
+          AND (signature_path IS NULL OR signature_path = '')
+      `;
+      params = [dbFilePath, signedAt, ...normalizedPmIds];
+    }
+
+    const [result] = await pool.query(query, params);
+
+    logger.info(`Bulk signature uploaded for ${result.affectedRows} PM records`);
+
+    res.status(200).json({
+      success: true,
+      message: `Bulk sign completed for ${result.affectedRows} PM records`,
+      data: {
+        requestedCount: normalizedPmIds.length,
+        signedCount: result.affectedRows,
+        signature_path: dbFilePath,
+        signed_at: signedAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error in bulkSignPM:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to bulk sign PM records',
       message: error.message
     });
   }
@@ -552,7 +947,7 @@ const getPMReport = async (req, res, next) => {
 
     if (pdfCheck.exists && pdfCheck.filepath) {
       // Database has file_path, check if file actually exists
-      const absolutePath = path.join(__dirname, '../', pdfCheck.filepath);
+      const absolutePath = resolveAbsoluteFilePath(pdfCheck.filepath);
       
       if (fs.existsSync(absolutePath)) {
         // File exists in directory, use it
@@ -601,7 +996,7 @@ const getPMReport = async (req, res, next) => {
     }
 
     // Convert relative path to absolute path
-    const absolutePath = path.join(__dirname, '../', filepath);
+    const absolutePath = resolveAbsoluteFilePath(filepath);
 
     // Final check before download
     if (!fs.existsSync(absolutePath)) {
@@ -660,23 +1055,60 @@ const getPMReport = async (req, res, next) => {
  */
 const bulkDownloadPM = async (req, res, next) => {
   try {
-    const { pmIds = [], blankAssetIds = [] } = req.body;
+    let { pmIds = [], blankAssetIds = [], customer = null, branch = null, category = null, startDate = null, endDate = null } = req.body;
 
-    // Validate at least one type of ID is provided
-    if ((!pmIds || !Array.isArray(pmIds)) && (!blankAssetIds || !Array.isArray(blankAssetIds))) {
-      logger.error('Invalid request in bulk download');
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'pmIds or blankAssetIds array is required'
-      });
-    }
+    pmIds = Array.isArray(pmIds) ? pmIds : [];
+    blankAssetIds = Array.isArray(blankAssetIds) ? blankAssetIds : [];
 
+    // If no explicit IDs provided, allow filters (customer/branch/category/date) to select PM records
     if (pmIds.length === 0 && blankAssetIds.length === 0) {
-      logger.error('No IDs provided in bulk download request');
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'At least one PM ID or blank asset ID must be provided'
-      });
+      if (!customer && !branch && !category && !startDate && !endDate) {
+        logger.error('No IDs or filters provided in bulk download request');
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: 'Provide pmIds/blankAssetIds or at least one filter (customer, branch, category, startDate/endDate)'
+        });
+      }
+
+      // Build query to fetch PM IDs based on filters
+      const conditions = ['pm.deleted_at IS NULL'];
+      const params = [];
+
+      if (startDate && endDate) {
+        conditions.push('DATE(pm.PM_Date) BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+      }
+
+      if (customer) {
+        conditions.push('(c.Customer_Name = ? OR c.Customer_Ref_Number = ? OR i.Customer_ID = ?)');
+        params.push(customer, customer, customer);
+      }
+
+      if (branch) {
+        conditions.push('c.Branch = ?');
+        params.push(branch);
+      }
+
+      if (category) {
+        conditions.push('cat.Category = ?');
+        params.push(category);
+      }
+
+      const sql = `SELECT DISTINCT pm.PM_ID FROM PMAINTENANCE pm
+        LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+        LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
+        LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
+        LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY pm.PM_Date DESC`;
+
+      const [rows] = await pool.execute(sql, params);
+      pmIds = rows.map((r) => r.PM_ID);
+
+      if (!pmIds || pmIds.length === 0) {
+        logger.error('No PM records found for provided filters');
+        return res.status(404).json({ error: 'No PM records found for provided filters' });
+      }
     }
 
     logger.info(`📦 Bulk download requested - PM records: ${pmIds.length}, Blank forms: ${blankAssetIds.length}`);
@@ -702,6 +1134,12 @@ const bulkDownloadPM = async (req, res, next) => {
     }
 
     logger.info(`✅ Found ${validPMRecords.length} PM records and ${validBlankAssets.length} blank forms`);
+
+    if (validPMRecords.length > BULK_PDF_MAX_RECORDS && validBlankAssets.length === 0) {
+      logger.info(`📦 Large bulk export detected (${validPMRecords.length} PM records). Switching to ZIP export.`);
+      await streamBulkZip(res, validPMRecords);
+      return;
+    }
 
     // Generate combined PDF using pdfGenerator
     logger.info('Starting bulk PDF generation...');
@@ -771,11 +1209,21 @@ const deletePM = async (req, res, next) => {
         error: 'PM record not found'
       });
     }
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logPMChange(
+      userId,
+      pmId,
+      'DELETE',
+      `${username} moved PM record ID: ${pmId} to trash`,
+      []
+    );
     
-    logger.info(`PM record deleted: PM_ID ${pmId}`);
+    logger.info(`PM record soft deleted: PM_ID ${pmId}`);
     res.status(200).json({
       success: true,
-      message: 'PM record deleted successfully'
+      message: 'PM record moved to trash successfully'
     });
   } catch (error) {
     logger.error('Error in deletePM:', error);
@@ -848,7 +1296,7 @@ const getBlankPMReport = async (req, res, next) => {
     }
 
     // Convert relative path to absolute path
-    const absolutePath = path.join(__dirname, '../', result.filepath);
+    const absolutePath = resolveAbsoluteFilePath(result.filepath);
 
     // Log filename for debugging
     logger.info(`📥 Downloading blank PM form: ${result.filename}`);
@@ -1174,20 +1622,28 @@ const bulkDeletePM = async (req, res, next) => {
       });
     }
 
-    // Delete PM records (cascade will handle PM_RESULT deletion)
+    // Soft delete PM records
     let deletedCount = 0;
     const errors = [];
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
 
     for (const pmId of pmIds) {
       try {
-        // First delete from PM_RESULT
-        await executeQuery('DELETE FROM PM_RESULT WHERE PM_ID = ?', [pmId]);
-        
-        // Then delete from PMAINTENANCE
-        const result = await executeQuery('DELETE FROM PMAINTENANCE WHERE PM_ID = ?', [pmId]);
+        const result = await executeQuery(
+          'UPDATE PMAINTENANCE SET deleted_at = CURRENT_TIMESTAMP WHERE PM_ID = ? AND deleted_at IS NULL',
+          [pmId]
+        );
         
         if (result.affectedRows > 0) {
           deletedCount++;
+          await logPMChange(
+            userId,
+            pmId,
+            'DELETE',
+            `${username} moved PM record ID: ${pmId} to trash`,
+            []
+          );
         }
       } catch (error) {
         logger.error(`Error deleting PM_ID ${pmId}:`, error);
@@ -1196,20 +1652,59 @@ const bulkDeletePM = async (req, res, next) => {
     }
 
     // Log the deletion
-    logger.info(`User ${req.user.userId} deleted ${deletedCount} PM records`);
+    logger.info(`User ${req.user.userId} soft deleted ${deletedCount} PM records`);
 
     res.status(200).json({
       success: true,
       deletedCount,
       failedCount: errors.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: `Successfully deleted ${deletedCount} PM record(s)`
+      message: `Successfully moved ${deletedCount} PM record(s) to trash`
     });
   } catch (error) {
     logger.error('Error in bulkDeletePM:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to delete PM records',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Revert soft deleted PM record
+ */
+const revertPMDelete = async (req, res, next) => {
+  try {
+    const { pmId } = req.params;
+
+    const restored = await PMaintenance.restorePM(pmId);
+    if (!restored) {
+      return res.status(404).json({
+        success: false,
+        error: 'PM record not found or already restored'
+      });
+    }
+
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    await logPMChange(
+      userId,
+      pmId,
+      'RESTORE',
+      `${username} restored PM record ID: ${pmId} from trash`,
+      []
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'PM record successfully restored'
+    });
+  } catch (error) {
+    logger.error('Error in revertPMDelete:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore PM record',
       message: error.message
     });
   }
@@ -1251,6 +1746,10 @@ const markAsCompleted = async (req, res, next) => {
 module.exports = {
   getAllPM,
   getPMStatistics,
+  getRecipientsForBulkOps,
+  getRecipientAssetsForBulkOps,
+  bulkCreatePMByRecipient,
+  bulkSignPM,
   getCustomers,
   getBranchesByCustomer,
   getPMByCustomerAndBranch,
@@ -1274,5 +1773,6 @@ module.exports = {
   deleteAcknowledgement,
   uploadSignature,
   bulkDeletePM,
-  markAsCompleted
+  markAsCompleted,
+  revertPMDelete
 };

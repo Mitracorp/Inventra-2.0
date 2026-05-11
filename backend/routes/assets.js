@@ -15,7 +15,8 @@ const {
   getAssetStatistics,
   validateImportData,
   bulkImportAssets,
-  fixOrphanedAssets
+  fixOrphanedAssets,
+  revertAssetDelete
 } = require('../controllers/assetController');
 const { authenticateToken, authorize } = require('../middleware/auth');
 const { handleValidationErrors } = require('../middleware/validation');
@@ -155,5 +156,7 @@ router.post('/bulk-import',
 
 // Fix orphaned assets route (development/admin only)
 router.post('/fix-orphaned', fixOrphanedAssets);
+
+router.put('/revert/:id', authenticateToken, revertAssetDelete);
 
 module.exports = router;

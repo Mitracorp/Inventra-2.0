@@ -443,7 +443,8 @@ class ApiService {
           { Category_ID: 1, Category: 'Desktop' },
           { Category_ID: 2, Category: 'Printer' },
           { Category_ID: 3, Category: 'Laptop' },
-          { Category_ID: 4, Category: 'Server' }
+          { Category_ID: 4, Category: 'Server' },
+          { Category_ID: 5, Category: 'iPad' }
         ]
       };
     }
@@ -524,7 +525,8 @@ class ApiService {
           { id: 1, name: 'Desktop', Category_ID: 1, Category: 'Desktop' },
           { id: 2, name: 'Printer', Category_ID: 2, Category: 'Printer' },
           { id: 3, name: 'Laptop', Category_ID: 3, Category: 'Laptop' },
-          { id: 4, name: 'Server', Category_ID: 4, Category: 'Server' }
+          { id: 4, name: 'Server', Category_ID: 4, Category: 'Server' },
+          { id: 5, name: 'iPad', Category_ID: 5, Category: 'iPad' }
         ],
         fallback: true
       };
@@ -600,7 +602,8 @@ class ApiService {
           { id: 1, name: 'Desktop', Category_ID: 1, Category: 'Desktop' },
           { id: 2, name: 'Printer', Category_ID: 2, Category: 'Printer' },
           { id: 3, name: 'Laptop', Category_ID: 3, Category: 'Laptop' },
-          { id: 4, name: 'Server', Category_ID: 4, Category: 'Server' }
+          { id: 4, name: 'Server', Category_ID: 4, Category: 'Server' },
+          { id: 5, name: 'iPad', Category_ID: 5, Category: 'iPad' }
         ]
       };
     }

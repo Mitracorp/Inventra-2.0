@@ -3,6 +3,8 @@ const Customer = require('../models/Customer');
 const Inventory = require('../models/Inventory');
 const { logProjectChange, detectChanges } = require('../utils/auditLogger');
 const { pool } = require('../config/database');
+const fs = require('fs');
+const path = require('path');
 
 // Get all projects
 exports.getAllProjects = async (req, res) => {
@@ -388,6 +390,7 @@ exports.updateProject = async (req, res) => {
       Project_ID: id,
       Project_Ref_Number: updates.Project_Ref_Number || projectData.Project_Ref_Number,
       Project_Title: updates.Project_Title || projectData.Project_Title,
+      Company_Full_Name: updates.Company_Full_Name !== undefined ? updates.Company_Full_Name : projectData.Company_Full_Name,
       Warranty: updates.Warranty !== undefined ? updates.Warranty : projectData.Warranty,
       Preventive_Maintenance: updates.Preventive_Maintenance !== undefined ? updates.Preventive_Maintenance : projectData.Preventive_Maintenance,
       PM_Frequency: updates.PM_Frequency !== undefined ? updates.PM_Frequency : projectData.PM_Frequency,
@@ -531,14 +534,13 @@ exports.getDeletionPreview = async (req, res) => {
   }
 };
 
-// Delete project
+// Soft Delete project
 exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log('=== DELETE PROJECT DEBUG ===');
-    console.log(`Attempting to delete project with ID: ${id}`);
-    console.log('User info:', req.user);
+    console.log('=== SOFT DELETE PROJECT DEBUG ===');
+    console.log(`Attempting to soft delete project with ID: ${id}`);
     
     // Get project data before deletion for audit log
     const project = await Project.findById(id);
@@ -546,191 +548,51 @@ exports.deleteProject = async (req, res) => {
       console.log('Project not found');
       return res.status(404).json({ error: 'Project not found' });
     }
-    console.log('Project found:', project.Project_Title);
     
-    // Step 1: Get all inventory records for this project to find related assets and customers
-    console.log('Step 1: Getting inventory records...');
+    // 1. Dapatkan customer name untuk log
     const inventoryRecords = await Inventory.findByProject(id);
-    console.log(`Found ${inventoryRecords.length} inventory records for project ${id}`);
-    
-    // Step 2: Get all unique asset IDs from inventory
-    console.log('Step 2: Getting asset IDs...');
-    const assetIds = [...new Set(inventoryRecords.map(inv => inv.Asset_ID).filter(id => id))];
-    console.log(`Found ${assetIds.length} unique assets to delete`);
-    
-    let deletedPMCount = 0;
-    let deletedPeripheralCount = 0;
-    let deletedSoftwareLinks = 0;
-    
-    // Step 3: Delete all related data for each asset
-    console.log('Step 3: Deleting related data for assets...');
-    for (const assetId of assetIds) {
-      if (!assetId) continue;
-      
-      console.log(`Processing asset ${assetId}...`);
-      
-      // 3a. Delete all PM records for this asset
-      try {
-        const [pmRecords] = await pool.execute(
-          'SELECT PM_ID FROM PMAINTENANCE WHERE Asset_ID = ?',
-          [assetId]
-        );
-        
-        for (const pm of pmRecords) {
-          // Delete PM results first (foreign key constraint)
-          await pool.execute(
-            'DELETE FROM PM_RESULT WHERE PM_ID = ?',
-            [pm.PM_ID]
-          );
-          // Delete PM record
-          await pool.execute(
-            'DELETE FROM PMAINTENANCE WHERE PM_ID = ?',
-            [pm.PM_ID]
-          );
-          deletedPMCount++;
-        }
-        console.log(`  ✓ Deleted ${pmRecords.length} PM records for asset ${assetId}`);
-      } catch (error) {
-        console.error(`  ✗ Error deleting PM records for asset ${assetId}:`, error.message);
-        throw error;
-      }
-      
-      // 3b. Delete all peripherals for this asset
-      try {
-        const [peripherals] = await pool.execute(
-          'DELETE FROM PERIPHERAL WHERE Asset_ID = ?',
-          [assetId]
-        );
-        deletedPeripheralCount += peripherals.affectedRows || 0;
-        console.log(`  ✓ Deleted ${peripherals.affectedRows || 0} peripherals for asset ${assetId}`);
-      } catch (error) {
-        console.error(`  ✗ Error deleting peripherals for asset ${assetId}:`, error.message);
-        throw error;
-      }
-      
-      // 3c. Delete software associations (bridge table)
-      try {
-        const [softwareLinks] = await pool.execute(
-          'DELETE FROM ASSET_SOFTWARE_BRIDGE WHERE Asset_ID = ?',
-          [assetId]
-        );
-        deletedSoftwareLinks += softwareLinks.affectedRows || 0;
-        console.log(`  ✓ Deleted ${softwareLinks.affectedRows || 0} software links for asset ${assetId}`);
-      } catch (error) {
-        console.error(`  ✗ Error deleting software links for asset ${assetId}:`, error.message);
-        throw error;
-      }
-    }
-    
-    // Step 4: Delete all assets
-    console.log('Step 4: Deleting assets...');
-    for (const assetId of assetIds) {
-      if (!assetId) continue;
-      try {
-        await pool.execute(
-          'DELETE FROM ASSET WHERE Asset_ID = ?',
-          [assetId]
-        );
-        console.log(`  ✓ Deleted asset: ${assetId}`);
-      } catch (error) {
-        console.error(`  ✗ Error deleting asset ${assetId}:`, error.message);
-        throw error;
-      }
-    }
-    
-    // Step 5: Delete all inventory records for this project
-    console.log('Step 5: Deleting inventory records...');
-    for (const inv of inventoryRecords) {
-      try {
-        await Inventory.delete(inv.Inventory_ID);
-        console.log(`  ✓ Deleted inventory record: ${inv.Inventory_ID}`);
-      } catch (error) {
-        console.error(`  ✗ Error deleting inventory ${inv.Inventory_ID}:`, error.message);
-        throw error;
-      }
-    }
-    
-    // Step 6: Delete all customer records associated with this project
-    console.log('Step 6: Deleting customer records...');
-    const customerIds = [...new Set(inventoryRecords.map(inv => inv.Customer_ID).filter(id => id))];
-    console.log(`Found ${customerIds.length} unique customers to delete`);
-    
-    for (const customerId of customerIds) {
-      if (customerId) {
-        try {
-          await Customer.delete(customerId);
-          console.log(`  ✓ Deleted customer record: ${customerId}`);
-        } catch (error) {
-          console.error(`  ✗ Error deleting customer ${customerId}:`, error.message);
-          throw error;
-        }
-      }
-    }
-    
-    // Step 7: Delete solution principal associations for this project
-    console.log('Step 7: Deleting solution principal associations...');
-    try {
-      await pool.execute(
-        `DELETE FROM PROJECT_SP_BRIDGE WHERE Project_ID = ?`,
-        [id]
-      );
-      console.log(`  ✓ Deleted solution principal associations for project ${id}`);
-    } catch (error) {
-      console.error(`  ✗ Error deleting SP associations:`, error.message);
-      throw error;
-    }
-    
-    // Step 8: Delete the project
-    console.log('Step 8: Deleting project...');
-    try {
-      const deleted = await Project.delete(id);
-      if (!deleted) {
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      console.log(`  ✓ Deleted project ${id}`);
-    } catch (error) {
-      console.error(`  ✗ Error deleting project:`, error.message);
-      throw error;
-    }
-    
-    // Step 9: Log the deletion
-    console.log('Step 9: Creating audit log...');
-    const userId = req.user?.User_ID || req.user?.userId || 1;
-    const username = req.user?.Username || req.user?.username || 'System';
     const customerName = inventoryRecords.length > 0 ? inventoryRecords[0].Customer_Name : 'Unknown';
     
+    // 2. Buat Soft Delete (Kita panggil fungsi 'delete' yang dah diubah dalam Project.js)
+    console.log('Step 2: Updating deleted_at...');
+    const isDeleted = await Project.delete(id);
+    
+    if (!isDeleted) {
+      return res.status(400).json({ error: 'Failed to soft delete project' });
+    }
+    
+    // 3. Simpan Audit Log dengan table_name dan record_id
+    console.log('Step 3: Creating audit log...');
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    
     try {
+      // Kita tumpang function sedia ada, TAPI PASTIKAN utils/auditLogger kau 
+      // simpan 'Project_ID' supaya kita boleh guna ID ni untuk Revert.
       await logProjectChange(
         userId,
-        id,
+        id, // INI RECORD ID (Penting untuk revert)
         'DELETE',
-        `${username} deleted Project for ${customerName} - Cascade deleted ${assetIds.length} assets, ${deletedPMCount} PM records, ${deletedPeripheralCount} peripherals`,
-        []
+        `${username} moved Project for ${customerName} to trash (Soft Delete)`,
+        [] // Tiada changes array untuk delete
       );
       console.log(`  ✓ Audit log created`);
     } catch (error) {
       console.error(`  ✗ Error creating audit log:`, error.message);
-      // Don't throw - audit log failure should not prevent deletion success
     }
     
-    console.log(`✅ Successfully deleted project ${id} and all related records`);
+    console.log(`✅ Successfully soft deleted project ${id}`);
     
     res.json({ 
-      message: 'Project and all related records deleted successfully',
-      deletedAssets: assetIds.length,
-      deletedPMRecords: deletedPMCount,
-      deletedPeripherals: deletedPeripheralCount,
-      deletedSoftwareLinks: deletedSoftwareLinks,
-      deletedInventory: inventoryRecords.length,
-      deletedCustomers: customerIds.length
+      success: true,
+      message: 'Project moved to trash successfully (Soft Delete)',
+      projectId: id
     });
   } catch (error) {
-    console.error('❌ Error deleting project:', error);
-    console.error('Error stack:', error.stack);
+    console.error('❌ Error soft deleting project:', error);
     res.status(500).json({ 
       error: 'Failed to delete project',
-      message: error.message,
-      details: error.stack
+      message: error.message
     });
   }
 };
@@ -903,6 +765,138 @@ exports.getPMSchedules = async (req, res) => {
       success: false,
       error: 'Failed to fetch PM schedules',
       message: error.message 
+    });
+  }
+};
+
+// Revert Soft Delete (Restore Project)
+exports.revertProjectDelete = async (req, res) => {
+  try {
+    const { id } = req.params; // ID project yang nak dipulihkan
+    
+    console.log(`Attempting to restore project with ID: ${id}`);
+    
+    // 1. Update deleted_at jadi NULL
+    const [result] = await pool.execute(
+      'UPDATE PROJECT SET deleted_at = NULL WHERE Project_ID = ?', 
+      [id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Project not found or already restored' });
+    }
+
+    // 2. Simpan dalam Audit Log (Cakap dah berjaya restore)
+    const userId = req.user?.User_ID || req.user?.userId || 1;
+    const username = req.user?.Username || req.user?.username || 'System';
+    
+    await logProjectChange(
+      userId,
+      id,
+      'RESTORE',
+      `${username} restored Project ID: ${id} from trash`,
+      []
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Project successfully restored' 
+    });
+  } catch (error) {
+    console.error('Error restoring project:', error);
+    res.status(500).json({ 
+      error: 'Failed to restore project',
+      message: error.message 
+    });
+  }
+};
+
+// Upload or replace project/company logo
+exports.uploadProjectLogo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No logo file uploaded'
+      });
+    }
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project not found'
+      });
+    }
+
+    const newPath = req.file.path.replace(/\\/g, '/').replace(/^.*backend\//, '');
+
+    const updated = await Project.updateLogoPath(id, newPath);
+    if (!updated) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save logo path'
+      });
+    }
+
+    // Cleanup old logo file if present and different
+    if (project.file_path_logo && project.file_path_logo !== newPath) {
+      const oldAbsPath = path.join(__dirname, '..', project.file_path_logo);
+      if (fs.existsSync(oldAbsPath)) {
+        try {
+          fs.unlinkSync(oldAbsPath);
+        } catch (e) {
+          // Ignore old file cleanup failures
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Project logo uploaded successfully',
+      file_path_logo: newPath
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to upload project logo',
+      message: error.message
+    });
+  }
+};
+
+// Serve project/company logo by project ID
+exports.getProjectLogoFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+
+    if (!project || !project.file_path_logo) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project logo not found'
+      });
+    }
+
+    const normalizedPath = String(project.file_path_logo).replace(/\\/g, '/').replace(/^\/+/, '');
+    const absolutePath = path.join(__dirname, '..', normalizedPath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Project logo file is missing on server'
+      });
+    }
+
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    return res.sendFile(absolutePath);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to load project logo',
+      message: error.message
     });
   }
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Filter, Edit, Trash2, Download, Plus, Upload, FileText, Columns, AlertTriangle, X, Settings2, Eye, Trash, Edit2, AlertCircle, RefreshCw, Package, Boxes, Flag } from 'lucide-react';
 import Pagination from '../components/Pagination';
+import ConfirmationModal from '../components/ConfirmationModal';
 import apiService from '../services/apiService';
 import ColumnFilterPopup from '../components/ColumnFilterPopup';
 import ColumnConfigService from '../services/columnConfigService';
@@ -53,8 +54,8 @@ const Assets = ({ onDelete }) => {
   const CACHE_DURATION = 10000; // 10 seconds cache - shorter since we only fetch one page
   
   // Sorting state
-  const [sortField, setSortField] = useState('Inventory_ID');
-  const [sortDirection, setSortDirection] = useState('desc'); // Show newest first
+  const [sortField, setSortField] = useState(() => localStorage.getItem('inventraAssetsSortField') || 'Inventory_ID');
+  const [sortDirection, setSortDirection] = useState(() => localStorage.getItem('inventraAssetsSortDirection') || 'desc'); // Show newest first
   
   // Success message state
   const [successMessage, setSuccessMessage] = useState('');
@@ -68,6 +69,10 @@ const Assets = ({ onDelete }) => {
 
   // Bulk delete state
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState({
+    show: false,
+    assetIds: []
+  });
 
   // Selection state
   const [selectedAssets, setSelectedAssets] = useState([]);
@@ -110,6 +115,34 @@ const Assets = ({ onDelete }) => {
       : '0 4px 15px rgba(0, 0, 0, 0.2)';
   };
 
+  const listSortMode = useMemo(() => {
+    if (sortField === 'Customer_Name' && sortDirection === 'asc') return 'alpha-asc';
+    if (sortField === 'Customer_Name' && sortDirection === 'desc') return 'alpha-desc';
+    if (sortField === 'Inventory_ID' && sortDirection === 'asc') return 'num-asc';
+    if (sortField === 'Inventory_ID' && sortDirection === 'desc') return 'default';
+    return 'default';
+  }, [sortField, sortDirection]);
+
+  const handleListSortChange = (mode) => {
+    if (mode === 'alpha-asc') {
+      setSortField('Customer_Name');
+      setSortDirection('asc');
+    } else if (mode === 'alpha-desc') {
+      setSortField('Customer_Name');
+      setSortDirection('desc');
+    } else if (mode === 'num-asc') {
+      setSortField('Inventory_ID');
+      setSortDirection('asc');
+    } else if (mode === 'num-desc') {
+      setSortField('Inventory_ID');
+      setSortDirection('desc');
+    } else {
+      setSortField('Inventory_ID');
+      setSortDirection('desc');
+    }
+    setCurrentPage(1);
+  };
+
   // Load column configuration on mount
   useEffect(() => {
     const savedConfig = ColumnConfigService.loadConfig();
@@ -127,6 +160,11 @@ const Assets = ({ onDelete }) => {
       setExportCustomers(uniqueCustomers.sort());
     }
   }, [allAssetsForExport]);
+
+  useEffect(() => {
+    localStorage.setItem('inventraAssetsSortField', sortField);
+    localStorage.setItem('inventraAssetsSortDirection', sortDirection);
+  }, [sortField, sortDirection]);
 
   // Debounce search input for better performance
   useEffect(() => {
@@ -420,18 +458,27 @@ const Assets = ({ onDelete }) => {
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedAssets.length === 0) {
       toast.error('Please select at least one asset to delete');
       return;
     }
 
-    const assetsToDelete = [...selectedAssets];
+    setBulkDeleteConfirm({
+      show: true,
+      assetIds: [...selectedAssets]
+    });
+  };
 
-    const confirmed = window.confirm(
-      `Delete ${assetsToDelete.length} asset(s)? This will remove inventory rows, software links, peripherals, and PM records/results.`
-    );
-    if (!confirmed) return;
+  const handleConfirmBulkDelete = async () => {
+    const assetsToDelete = [...bulkDeleteConfirm.assetIds];
+
+    if (assetsToDelete.length === 0) {
+      setBulkDeleteConfirm({ show: false, assetIds: [] });
+      return;
+    }
+
+    setBulkDeleteConfirm({ show: false, assetIds: [] });
 
     setBulkDeleting(true);
     try {
@@ -1056,6 +1103,31 @@ const Assets = ({ onDelete }) => {
               </span>
             )}
           </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+            <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '600' }}>List Order</span>
+            <select
+              value={listSortMode}
+              onChange={(e) => handleListSortChange(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '12px 10px',
+                border: '2px solid #e5e7eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                backgroundColor: 'white',
+                color: '#374151',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="default">Default</option>
+              <option value="alpha-asc">A-Z</option>
+              <option value="alpha-desc">Z-A</option>
+              <option value="num-asc">0-9</option>
+              <option value="num-desc">9-0</option>
+            </select>
+          </div>
           
           {/* Bulk Action Buttons */}
           {selectedAssets.length > 0 && (
@@ -1614,6 +1686,22 @@ const Assets = ({ onDelete }) => {
         onClose={() => setShowColumnFilter(false)}
         columns={columnConfig}
         onApply={handleColumnConfigApply}
+      />
+
+      <ConfirmationModal
+        isOpen={bulkDeleteConfirm.show}
+        onClose={() => {
+          if (!bulkDeleting) {
+            setBulkDeleteConfirm({ show: false, assetIds: [] });
+          }
+        }}
+        onConfirm={handleConfirmBulkDelete}
+        title={`Delete ${bulkDeleteConfirm.assetIds.length} asset(s)?`}
+        message="This will remove inventory rows, software links, peripherals, and PM records/results."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={bulkDeleting}
       />
 
       {/* Delete Confirmation Dialog */}

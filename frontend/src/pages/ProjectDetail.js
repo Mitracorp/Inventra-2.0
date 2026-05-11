@@ -254,6 +254,17 @@ const ProjectDetail = () => {
           }}>
             {project.Customer_Name || 'Project Details'}
           </h1>
+          {project.Company_Full_Name && project.Company_Full_Name !== project.Customer_Name && (
+            <p style={{
+              color: 'rgba(255, 255, 255, 0.92)',
+              margin: '8px 0 0 0',
+              fontSize: '16px',
+              fontWeight: '500',
+              maxWidth: '900px'
+            }}>
+              {project.Company_Full_Name}
+            </p>
+          )}
           {project.Customer_Ref_Number && (
             <p style={{ 
               color: 'rgba(255, 255, 255, 0.9)', 

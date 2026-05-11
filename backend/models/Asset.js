@@ -32,25 +32,25 @@ class Asset {
       const { limit, offset = 0, search = '', sortField = 'Asset_ID', sortDirection = 'DESC', flagged = false, columnFilters = {}, allowedProjectIds = null } = options;
       
       // Build WHERE clause for search
-      let whereClause = '';
+      let whereClause = 'WHERE a.deleted_at IS NULL';
       let searchParams = [];
       
       // Add Project_ID filter for customer-type users
       if (allowedProjectIds && Array.isArray(allowedProjectIds) && allowedProjectIds.length > 0) {
         const placeholders = allowedProjectIds.map(() => '?').join(',');
-        whereClause = `WHERE i.Project_ID IN (${placeholders})`;
+        // Tukar WHERE jadi AND sebab kita dah mula dengan WHERE kat atas
+        whereClause += ` AND i.Project_ID IN (${placeholders})`; 
         searchParams.push(...allowedProjectIds);
         console.log('🔍 Asset filtering - Allowed Project IDs:', allowedProjectIds);
       }
       
       // Add flagged filter
       if (flagged) {
-        whereClause = whereClause ? `${whereClause} AND a.Is_Flagged = 1` : 'WHERE a.Is_Flagged = 1';
+        whereClause += ' AND a.Is_Flagged = 1';
       }
       
       if (search) {
-        whereClause = whereClause ? `${whereClause} AND (` : 'WHERE (';
-        whereClause += `
+        whereClause += ` AND (
           a.Asset_Serial_Number LIKE ? OR
           a.Asset_Tag_ID LIKE ? OR
           a.Item_Name LIKE ? OR
@@ -604,175 +604,52 @@ class Asset {
     }
   }
 
-  // Delete asset
+  // Soft Delete asset
   static async delete(id) {
     try {
-      const [result] = await pool.execute('DELETE FROM ASSET WHERE Asset_ID = ?', [id]);
-      return result.affectedRows > 0;
+      console.log(`Starting soft deletion for Asset_ID: ${id}`);
+      
+      // Kita update deleted_at dengan tarikh dan masa sekarang
+      const [result] = await pool.execute(
+        'UPDATE ASSET SET deleted_at = CURRENT_TIMESTAMP WHERE Asset_ID = ?', 
+        [id]
+      );
+      
+      const success = result.affectedRows > 0;
+      
+      if (success) {
+        console.log(`✅ Successfully soft deleted Asset_ID: ${id}`);
+      } else {
+        console.log(`❌ Failed to soft delete Asset_ID: ${id} (Not found)`);
+      }
+      
+      return success;
     } catch (error) {
       console.error('Error in Asset.delete:', error);
       throw error;
     }
   }
 
-  // Delete asset by ID with cascade deletion of related records
+  // Biarkan deleteById panggil fungsi delete (untuk keserasian dengan kod controller lama)
   static async deleteById(assetId) {
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-      console.log(`Starting deletion process for Asset_ID: ${assetId}`);
-
-      let pmRecordsDeleted = 0;
-      let pmResultsDeleted = 0;
-      let softwareLinksDeleted = 0;
-
-      // 1. Try to delete PM records and their results (handle missing tables gracefully)
-      try {
-        // First, get all PM records for this asset
-        const [pmRecords] = await connection.execute(
-          'SELECT PM_ID FROM PMAINTENANCE WHERE Asset_ID = ?',
-          [assetId]
-        );
-        console.log(`Found ${pmRecords.length} PM records to delete`);
-
-        // Try to delete PM_RESULT for each PM record (correct table name is singular)
-        try {
-          for (const pm of pmRecords) {
-            const [pmResultDeleteResult] = await connection.execute(
-              'DELETE FROM PM_RESULT WHERE PM_ID = ?',
-              [pm.PM_ID]
-            );
-            pmResultsDeleted += pmResultDeleteResult.affectedRows;
-          }
-          console.log(`Deleted ${pmResultsDeleted} PM result records`);
-        } catch (pmResultError) {
-          // PM_RESULT table might not exist, continue anyway
-          console.log(`Warning: Could not delete PM_RESULT (table might not exist): ${pmResultError.message}`);
-        }
-
-        // Delete PMAINTENANCE records
-        const [pmDeleteResult] = await connection.execute(
-          'DELETE FROM PMAINTENANCE WHERE Asset_ID = ?',
-          [assetId]
-        );
-        pmRecordsDeleted = pmDeleteResult.affectedRows;
-        console.log(`Deleted ${pmRecordsDeleted} PM maintenance records`);
-      } catch (pmError) {
-        // PMAINTENANCE table issues, log and continue
-        console.log(`Warning: Could not delete PM records: ${pmError.message}`);
-      }
-
-      // 2. Delete peripherals for this asset
-      let peripheralsDeleted = 0;
-      try {
-        const [peripheralResult] = await connection.execute(
-          'DELETE FROM PERIPHERAL WHERE Asset_ID = ?',
-          [assetId]
-        );
-        peripheralsDeleted = peripheralResult.affectedRows;
-        console.log(`Deleted ${peripheralsDeleted} peripherals`);
-      } catch (peripheralError) {
-        console.log(`Warning: Could not delete peripherals: ${peripheralError.message}`);
-      }
-
-      // 3. Delete software links for this asset
-      try {
-        const [softwareResult] = await connection.execute(
-          'DELETE FROM ASSET_SOFTWARE_BRIDGE WHERE Asset_ID = ?',
-          [assetId]
-        );
-        softwareLinksDeleted = softwareResult.affectedRows;
-        console.log(`Deleted ${softwareLinksDeleted} software link(s)`);
-      } catch (softwareError) {
-        console.log(`Warning: Could not delete software links: ${softwareError.message}`);
-      }
-
-      // 4. Handle inventory records linked to this asset
-      // Check if this is the last asset for each project-customer combination
-      // If yes, set Asset_ID to NULL instead of deleting (preserve project-customer link)
-      // If no, delete the inventory row normally
-      let inventoryDeleted = 0;
-      let inventoryNulled = 0;
-      try {
-        // Get all inventory records for this asset
-        const [inventoryRecords] = await connection.execute(
-          'SELECT Inventory_ID, Project_ID, Customer_ID FROM INVENTORY WHERE Asset_ID = ?',
-          [assetId]
-        );
-        console.log(`Found ${inventoryRecords.length} inventory record(s) for Asset_ID: ${assetId}`);
-
-        for (const invRecord of inventoryRecords) {
-          // Check if there are other assets for same Project_ID + Customer_ID
-          const [otherAssets] = await connection.execute(
-            `SELECT COUNT(*) as count FROM INVENTORY 
-             WHERE Project_ID = ? AND Customer_ID = ? AND Asset_ID IS NOT NULL AND Asset_ID != ?`,
-            [invRecord.Project_ID, invRecord.Customer_ID, assetId]
-          );
-
-          const hasOtherAssets = otherAssets[0].count > 0;
-
-          if (hasOtherAssets) {
-            // Not the last asset - safe to delete this inventory row
-            await connection.execute(
-              'DELETE FROM INVENTORY WHERE Inventory_ID = ?',
-              [invRecord.Inventory_ID]
-            );
-            inventoryDeleted++;
-            console.log(`✓ Deleted INVENTORY row ${invRecord.Inventory_ID} (Project ${invRecord.Project_ID}, Customer ${invRecord.Customer_ID} has other assets)`);
-          } else {
-            // This is the last asset - preserve project-customer link by setting Asset_ID to NULL
-            await connection.execute(
-              'UPDATE INVENTORY SET Asset_ID = NULL WHERE Inventory_ID = ?',
-              [invRecord.Inventory_ID]
-            );
-            inventoryNulled++;
-            console.log(`✓ Set Asset_ID to NULL in INVENTORY row ${invRecord.Inventory_ID} (last asset for Project ${invRecord.Project_ID}, Customer ${invRecord.Customer_ID})`);
-          }
-        }
-
-        console.log(`INVENTORY processing: ${inventoryDeleted} deleted, ${inventoryNulled} set to NULL`);
-      } catch (inventoryError) {
-        console.log(`Warning: Could not process inventory records: ${inventoryError.message}`);
-      }
-
-      // 5. Finally, delete the asset (this is the critical operation)
-      const [assetResult] = await connection.execute(
-        'DELETE FROM ASSET WHERE Asset_ID = ?',
-        [assetId]
-      );
-      console.log(`Deleted ${assetResult.affectedRows} asset record`);
-
-      if (assetResult.affectedRows === 0) {
-        await connection.rollback();
-        return {
-          success: false,
-          error: 'Asset not found or already deleted'
-        };
-      }
-
-      await connection.commit();
-      console.log(`✅ Successfully deleted Asset_ID: ${assetId} and all related records`);
-
+      const success = await this.delete(assetId);
+      
+      // Return format yang controller lama kau expect
       return {
-        success: true,
-        peripheralsDeleted: peripheralsDeleted,
-        pmRecordsDeleted: pmRecordsDeleted,
-        pmResultsDeleted: pmResultsDeleted,
-        softwareLinksDeleted: softwareLinksDeleted,
-        inventoryDeleted: inventoryDeleted,
-        inventoryNulled: inventoryNulled,
-        // Backwards compatibility (previous name used by callers)
-        inventoryUpdated: inventoryDeleted + inventoryNulled
+        success: success,
+        // Kita letak 0 untuk benda lain sebab soft delete tak padam rekod anak-beranak
+        peripheralsDeleted: 0,
+        pmRecordsDeleted: 0,
+        pmResultsDeleted: 0,
+        softwareLinksDeleted: 0,
+        inventoryDeleted: 0,
+        inventoryNulled: 0,
+        inventoryUpdated: 0
       };
     } catch (error) {
-      await connection.rollback();
       console.error('Error in Asset.deleteById:', error);
-      return {
-        success: false,
-        error: error.message
-      };
-    } finally {
-      connection.release();
+      return { success: false, error: error.message };
     }
   }
 

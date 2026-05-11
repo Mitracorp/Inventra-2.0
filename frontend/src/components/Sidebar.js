@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  FolderOpen, 
-  Package, 
-  Wrench, 
+import {
+  LayoutDashboard,
+  FolderOpen,
+  Package,
+  Wrench,
   Settings,
   Activity,
   LogOut,
   User,
   Users,
   Menu,
-  X
+  X,
+  FileText,
+  ChevronDown
 } from 'lucide-react';
+import mitracorpLogo from '../assets/MitracorpLogo_full.png';
 
 const Sidebar = ({ onLogout, onMinimizeChange }) => {
   const location = useLocation();
@@ -25,6 +28,7 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isPMDeleteMode, setIsPMDeleteMode] = useState(false);
   const [showDeleteModeToast, setShowDeleteModeToast] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState({});
 
   useEffect(() => {
     // Get username and role from localStorage
@@ -63,6 +67,12 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
         setShowDeleteModeToast(false);
       }, 4000);
     }
+  };
+
+  const clearPMDeleteMode = () => {
+    sessionStorage.removeItem('pmDeleteMode');
+    window.dispatchEvent(new Event('pmDeleteModeChange'));
+    setIsPMDeleteMode(false);
   };
 
   // Handle window resize to detect mobile
@@ -127,11 +137,26 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
     }
   };
 
+  const toggleMenu = (path) => {
+    setExpandedMenus((prev) => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
+
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/projects', icon: FolderOpen, label: 'Projects' },
     { path: '/assets', icon: Package, label: 'Assets' },
-    { path: '/maintenance', icon: Wrench, label: 'Preventive Maintenance' },
+    {
+      path: '/maintenance',
+      icon: Wrench,
+      label: 'Preventive Maintenance',
+      submenu: [
+        { path: '/maintenance', label: 'PM Records', icon: Wrench },
+        { path: '/pm-reports', label: 'Reports', icon: FileText }
+      ]
+    },
     { path: '/solution-principal', icon: Users, label: 'Solution Principal' },
     { path: '/audit-log', icon: Activity, label: 'Audit Log' },
     { path: '/settings', icon: Settings, label: 'Account Settings' }
@@ -209,9 +234,21 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
         }}>
       <div className="sidebar-header">
         {sidebarWidth < 150 ? (
-          <div className="sidebar-logo" style={{ textAlign: 'center', fontSize: '24px' }}>I</div>
+          <div className="sidebar-logo-compact-wrap">
+            <img
+              src={mitracorpLogo}
+              alt="Mitracorp"
+              className="sidebar-logo-image sidebar-logo-image-minimized"
+            />
+            <div className="sidebar-logo" style={{ textAlign: 'center', fontSize: '20px', marginBottom: 0 }}>I</div>
+          </div>
         ) : (
           <>
+            <img
+              src={mitracorpLogo}
+              alt="Mitracorp"
+              className="sidebar-logo-image"
+            />
             <div className="sidebar-logo">Inventra</div>
             <div className="sidebar-subtitle">Asset Management System</div>
           </>
@@ -226,6 +263,99 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
             const isActive = location.pathname === item.path || 
                             (item.path === '/assets' && location.pathname === '/');
             
+            const isMenuExpanded = expandedMenus[item.path];
+            const hasSubmenu = item.submenu && item.submenu.length > 0;
+            
+            // Check if any submenu item is active
+            const isSubmenuActive = hasSubmenu && item.submenu.some(sub => location.pathname === sub.path);
+            
+            if (hasSubmenu) {
+              return (
+                <div key={item.path}>
+                  <button
+                    className={`nav-item ${isActive || isSubmenuActive ? 'active' : ''}`}
+                    title={sidebarWidth < 150 ? item.label : ''}
+                    style={{
+                      justifyContent: sidebarWidth < 150 ? 'center' : 'space-between',
+                      padding: sidebarWidth < 150 ? '12px' : '12px 20px',
+                      cursor: isPMDeleteMode ? 'not-allowed' : 'pointer',
+                      background: 'transparent',
+                      border: 'none',
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontSize: 'inherit'
+                    }}
+                    onClick={(e) => {
+                      if (isPMDeleteMode) {
+                        clearPMDeleteMode();
+                      } else {
+                        toggleMenu(item.path);
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <IconComponent className="nav-icon" />
+                      {sidebarWidth >= 150 && <span>{item.label}</span>}
+                    </div>
+                    {sidebarWidth >= 150 && (
+                      <ChevronDown
+                        size={18}
+                        style={{
+                          transition: 'transform 0.3s ease',
+                          transform: isMenuExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                        }}
+                      />
+                    )}
+                  </button>
+                  {isMenuExpanded && sidebarWidth >= 150 && (
+                    <div style={{ background: '#3a3a3a', borderLeft: '3px solid #667eea' }}>
+                      {item.submenu.map((submenu) => {
+                        const SubIconComponent = submenu.icon;
+                        const isSubActive = location.pathname === submenu.path;
+                        return (
+                          <Link
+                            key={submenu.path}
+                            to={submenu.path}
+                            className={`nav-item nav-submenu ${isSubActive ? 'active' : ''}`}
+                            title={submenu.label}
+                            style={{
+                              padding: '10px 20px 10px 48px',
+                              fontSize: '13px',
+                              cursor: isPMDeleteMode ? 'not-allowed' : 'pointer',
+                              color: isSubActive ? '#667eea' : '#d4d4d4',
+                              textDecoration: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              transition: 'all 0.2s ease',
+                              backgroundColor: isSubActive ? 'rgba(102, 126, 234, 0.1)' : 'transparent'
+                            }}
+                            onClick={(e) => {
+                              if (isPMDeleteMode) {
+                                clearPMDeleteMode();
+                              }
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(102, 126, 234, 0.15)';
+                              e.currentTarget.style.color = '#667eea';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = isSubActive ? 'rgba(102, 126, 234, 0.1)' : 'transparent';
+                              e.currentTarget.style.color = isSubActive ? '#667eea' : '#d4d4d4';
+                            }}
+                          >
+                            <SubIconComponent className="nav-icon" size={16} />
+                            <span>{submenu.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            
             return (
               <Link
                 key={item.path}
@@ -235,14 +365,11 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
                 style={{
                   justifyContent: sidebarWidth < 150 ? 'center' : 'flex-start',
                   padding: sidebarWidth < 150 ? '12px' : '12px 20px',
-                  opacity: isPMDeleteMode ? 0.5 : 1,
-                  pointerEvents: isPMDeleteMode ? 'none' : 'auto',
                   cursor: isPMDeleteMode ? 'not-allowed' : 'pointer'
                 }}
                 onClick={(e) => {
                   if (isPMDeleteMode) {
-                    e.preventDefault();
-                    handleShowDeleteModeToast();
+                    clearPMDeleteMode();
                   }
                 }}
               >
@@ -254,29 +381,6 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
         </div>
         
         <div className="sidebar-bottom-nav" style={{ borderTop: 'none', paddingTop: '0' }}>
-          <button 
-            type="button"
-            onClick={(e) => {
-              if (isPMDeleteMode) {
-                e.preventDefault();
-                handleShowDeleteModeToast();
-              } else {
-                onLogout();
-              }
-            }}
-            className="nav-item logout-item"
-            title={sidebarWidth < 150 ? 'Logout' : ''}
-            style={{
-              justifyContent: sidebarWidth < 150 ? 'center' : 'flex-start',
-              padding: sidebarWidth < 150 ? '12px' : '12px 20px',
-              opacity: isPMDeleteMode ? 0.5 : 1,
-              cursor: isPMDeleteMode ? 'not-allowed' : 'pointer'
-            }}
-          >
-            <LogOut className="nav-icon" />
-            {sidebarWidth >= 150 && <span>Logout</span>}
-          </button>
-          
           <div 
             className="nav-item user-item"
             title={sidebarWidth < 150 ? username : ''}
@@ -288,6 +392,25 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
             <User className="nav-icon" />
             {sidebarWidth >= 150 && <span>{username}</span>}
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isPMDeleteMode) {
+                clearPMDeleteMode();
+              }
+              onLogout();
+            }}
+            className="logout-action-btn"
+            title={sidebarWidth < 150 ? 'Logout' : ''}
+            style={{
+              justifyContent: sidebarWidth < 150 ? 'center' : 'center',
+              padding: sidebarWidth < 150 ? '12px' : '12px 18px'
+            }}
+          >
+            <LogOut className="nav-icon" />
+            {sidebarWidth >= 150 && <span>Logout</span>}
+          </button>
         </div>
       </nav>
       
@@ -340,7 +463,7 @@ const Sidebar = ({ onLogout, onMinimizeChange }) => {
           </svg>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: '600', marginBottom: '4px' }}>Delete Mode Active</div>
-            <div style={{ opacity: 0.9, fontSize: '13px' }}>Exit delete mode to access other features. Click Cancel to continue.</div>
+            <div style={{ opacity: 0.9, fontSize: '13px' }}>Navigating or logging out will now exit delete mode automatically.</div>
           </div>
         </div>
         <button

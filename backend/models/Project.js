@@ -7,12 +7,14 @@ class Project {
     this.Project_ID = project.Project_ID;
     this.Project_Ref_Number = project.Project_Ref_Number;
     this.Project_Title = project.Project_Title;
+    this.Company_Full_Name = project.Company_Full_Name;
     this.Warranty = project.Warranty;
     this.Preventive_Maintenance = project.Preventive_Maintenance;
     this.PM_Frequency = project.PM_Frequency;
     this.Start_Date = project.Start_Date;
     this.End_Date = project.End_Date;
     this.Antivirus = project.Antivirus;
+    this.file_path_logo = project.file_path_logo;
   }
 
   // Get all projects with customer information from INVENTORY table
@@ -23,17 +25,20 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
         LEFT JOIN INVENTORY i ON p.Project_ID = i.Project_ID
         LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
+        WHERE p.deleted_at IS NULL
         GROUP BY p.Project_ID
         ORDER BY p.Project_ID DESC
       `);
@@ -69,12 +74,14 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
@@ -119,12 +126,14 @@ class Project {
           p.Project_ID,
           p.Project_Ref_Number,
           p.Project_Title,
+          p.Company_Full_Name,
           p.Warranty,
           p.Preventive_Maintenance,
           p.PM_Frequency,
           p.Start_Date,
           p.End_Date,
           p.Antivirus,
+          p.file_path_logo,
           c.Customer_Name,
           c.Customer_Ref_Number
         FROM PROJECT p
@@ -160,11 +169,12 @@ class Project {
       }
       
       const [result] = await pool.execute(
-        `INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Company_Full_Name, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           projectData.Project_Ref_Number,
           projectData.Project_Title,
+          projectData.Company_Full_Name || null,
           projectData.Warranty,
           projectData.Preventive_Maintenance,
           projectData.PM_Frequency || 2,
@@ -188,6 +198,7 @@ class Project {
         `UPDATE PROJECT SET 
          Project_Ref_Number = ?, 
          Project_Title = ?, 
+         Company_Full_Name = ?,
          Warranty = ?, 
          Preventive_Maintenance = ?, 
          PM_Frequency = ?,
@@ -198,6 +209,7 @@ class Project {
         [
           this.Project_Ref_Number,
           this.Project_Title,
+          this.Company_Full_Name || null,
           this.Warranty,
           this.Preventive_Maintenance,
           this.PM_Frequency,
@@ -214,10 +226,14 @@ class Project {
     }
   }
 
-  // Delete project
+  // Soft Delete project (Instead of hard delete)
   static async delete(id) {
     try {
-      const [result] = await pool.execute('DELETE FROM PROJECT WHERE Project_ID = ?', [id]);
+      // Kita update deleted_at dengan tarikh dan masa sekarang
+      const [result] = await pool.execute(
+        'UPDATE PROJECT SET deleted_at = CURRENT_TIMESTAMP WHERE Project_ID = ?', 
+        [id]
+      );
       return result.affectedRows > 0;
     } catch (error) {
       console.error('Error in Project.delete:', error);
@@ -225,12 +241,25 @@ class Project {
     }
   }
 
+  static async updateLogoPath(id, filePathLogo) {
+    try {
+      const [result] = await pool.execute(
+        'UPDATE PROJECT SET file_path_logo = ? WHERE Project_ID = ?',
+        [filePathLogo, id]
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      console.error('Error in Project.updateLogoPath:', error);
+      throw error;
+    }
+  }
+
   // Get project statistics
   static async getStatistics() {
     try {
-      const [totalResult] = await pool.execute('SELECT COUNT(*) as total FROM PROJECT');
-      const [activeResult] = await pool.execute('SELECT COUNT(*) as active FROM PROJECT WHERE End_Date >= CURDATE()');
-      
+      const [totalResult] = await pool.execute('SELECT COUNT(*) as total FROM PROJECT WHERE deleted_at IS NULL');
+      const [activeResult] = await pool.execute('SELECT COUNT(*) as active FROM PROJECT WHERE End_Date >= CURDATE() AND deleted_at IS NULL');
+
       return {
         total: totalResult[0].total,
         active: activeResult[0].active,
@@ -270,6 +299,7 @@ class Project {
         WHERE p.PM_Frequency IS NOT NULL
         AND p.PM_Frequency > 0
         AND (p.End_Date IS NULL OR p.End_Date >= CURDATE())
+        AND p.deleted_at IS NULL
         GROUP BY p.Project_ID
         ORDER BY p.Start_Date, p.Project_Title
       `);

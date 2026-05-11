@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const {
   register,
   login,
+  microsoftLogin,
   getProfile,
   updateProfile,
   changePassword,
@@ -109,6 +110,14 @@ const loginValidationRules = [
     .withMessage('Password is required')
 ];
 
+const microsoftLoginValidationRules = [
+  body('idToken')
+    .notEmpty()
+    .withMessage('Microsoft ID token is required')
+    .isString()
+    .withMessage('Microsoft ID token must be a string')
+];
+
 const updateProfileValidationRules = [
   body('firstName')
     .optional()
@@ -126,7 +135,11 @@ const updateProfileValidationRules = [
   body('department')
     .optional()
     .isLength({ max: 100 })
-    .withMessage('Department must be less than 100 characters')
+    .withMessage('Department must be less than 100 characters'),
+  body('signature')
+    .optional()
+    .custom((value) => typeof value === 'string' && value.startsWith('data:image/png;base64,'))
+    .withMessage('Signature must be a Base64 PNG data URL')
 ];
 
 const changePasswordValidationRules = [
@@ -150,6 +163,20 @@ router.post('/login',
   loginValidationRules, 
   handleValidationErrors, 
   login
+);
+
+// Helpful response when this endpoint is opened directly in a browser.
+router.get('/login', (req, res) => {
+  return res.status(405).json({
+    success: false,
+    message: 'Use POST /auth/login with username and password in JSON body'
+  });
+});
+
+router.post('/microsoft-login',
+  microsoftLoginValidationRules,
+  handleValidationErrors,
+  microsoftLogin
 );
 
 // Protected routes

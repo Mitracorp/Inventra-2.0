@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import usePageTitle from '../hooks/usePageTitle';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, AlertTriangle, Wrench, Filter, Building2, MapPin, Package, FileText, X, ClipboardCheck, Edit, Trash2, Plus, Save, Search, Download, ChevronRight, ChevronLeft, Copy, ArrowLeft, GripVertical, Hammer, FileUp, Lock, AlertCircle, CheckSquare, Square, Users } from 'lucide-react';
 import { API_URL } from '../config/api';
 import Pagination from '../components/Pagination';
 import toast from '../utils/toast';
@@ -175,6 +175,9 @@ const PreventiveMaintenance = () => {
 
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [targetAssetId, setTargetAssetId] = useState('');
+  const [hasAutoOpenedTargetAsset, setHasAutoOpenedTargetAsset] = useState(false);
+  const [listSortMode, setListSortMode] = useState(() => localStorage.getItem('inventraPMSortMode') || 'default');
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -249,6 +252,15 @@ const PreventiveMaintenance = () => {
       ? '0 6px 20px rgba(0, 0, 0, 0.25)'
       : '0 4px 15px rgba(0, 0, 0, 0.2)';
   };
+
+  const openOverviewPage = (type) => {
+    const params = new URLSearchParams();
+    if (selectedCustomer) params.set('customer', selectedCustomer);
+    if (selectedBranch) params.set('branch', selectedBranch);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    navigate(`/maintenance/overview/${type}${suffix}`);
+  };
+
   const [selectedItemsToCopy, setSelectedItemsToCopy] = useState([]);
   const [showCopyConfirm, setShowCopyConfirm] = useState(false);
   const [loadingSourceChecklist, setLoadingSourceChecklist] = useState(false);
@@ -264,6 +276,7 @@ const PreventiveMaintenance = () => {
   // Bulk Download Modal States
   const [showBulkDownloadModal, setShowBulkDownloadModal] = useState(false);
   const [bulkDownloadSearch, setBulkDownloadSearch] = useState('');
+  const [bulkDownloadMode, setBulkDownloadMode] = useState('all');
   const [selectedAssets, setSelectedAssets] = useState([]); // Assets selected (left box)
   const [selectedPMRecords, setSelectedPMRecords] = useState({}); // PM records selected per asset {assetId: [pmId1, pmId2]}
   const [downloadingPDF, setDownloadingPDF] = useState(false);
@@ -295,6 +308,72 @@ const PreventiveMaintenance = () => {
   
   // Filter to show only assets with PM records
   const [showOnlyWithPM, setShowOnlyWithPM] = useState(false);
+  const [showOnlyWithPMBeforeDeleteMode, setShowOnlyWithPMBeforeDeleteMode] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('inventraPMSortMode', listSortMode);
+  }, [listSortMode]);
+
+  const normalizePMStatus = (status) => String(status || '').trim().toLowerCase();
+
+  const isDownloadablePMStatus = (status) => {
+    const normalized = normalizePMStatus(status);
+    return normalized === 'completed' || normalized === 'marked as completed';
+  };
+
+  const matchesBulkDownloadMode = (status) => {
+    const normalized = normalizePMStatus(status);
+
+    if (normalized === 'in-process') {
+      return false;
+    }
+
+    if (bulkDownloadMode === 'signedOnly') {
+      return normalized === 'completed';
+    }
+
+    if (bulkDownloadMode === 'unsignedOnly') {
+      return normalized === 'marked as completed';
+    }
+
+    return isDownloadablePMStatus(status);
+  };
+
+  useEffect(() => {
+    setSelectedPMRecords((currentSelections) => {
+      let hasChanges = false;
+      const nextSelections = {};
+
+      Object.entries(currentSelections).forEach(([assetId, selections]) => {
+        const asset = selectedAssets.find((item) => String(item.Asset_ID) === String(assetId));
+        if (!asset) {
+          hasChanges = true;
+          return;
+        }
+
+        const allowedIds = new Set((asset.allPMRecords || [])
+          .filter((pm) => matchesBulkDownloadMode(pm.Status))
+          .map((pm) => pm.PM_ID));
+
+        const filteredSelections = (selections || []).filter((selection) => {
+          if (selection === 'BLANK') {
+            return true;
+          }
+          return allowedIds.has(selection);
+        });
+
+        if (filteredSelections.length !== (selections || []).length) {
+          hasChanges = true;
+        }
+
+        if (filteredSelections.length > 0) {
+          nextSelections[assetId] = filteredSelections;
+        }
+      });
+
+      return hasChanges ? nextSelections : currentSelections;
+    });
+  }, [bulkDownloadMode, selectedAssets]);
 
   // Filtered lists for dropdowns (client-side search)
   const filteredCustomers = useMemo(() => {
@@ -312,6 +391,41 @@ const PreventiveMaintenance = () => {
     if (!q) return branches;
     return branches.filter(b => (b || '').toLowerCase().includes(q));
   }, [branches, branchFilterQuery]);
+
+  const parseNumeric = (value) => {
+    const parsed = parseInt(String(value || '').replace(/[^0-9.-]/g, ''), 10);
+    return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
+  };
+
+  const sortedCustomers = useMemo(() => {
+    if (listSortMode === 'default') return filteredCustomers;
+
+    return [...filteredCustomers].sort((a, b) => {
+      const aName = String(a.Customer_Name || '').toLowerCase();
+      const bName = String(b.Customer_Name || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aName.localeCompare(bName);
+      if (listSortMode === 'alpha-desc') return bName.localeCompare(aName);
+      if (listSortMode === 'num-asc') return parseNumeric(a.Customer_Ref_Number) - parseNumeric(b.Customer_Ref_Number);
+      if (listSortMode === 'num-desc') return parseNumeric(b.Customer_Ref_Number) - parseNumeric(a.Customer_Ref_Number);
+      return 0;
+    });
+  }, [filteredCustomers, listSortMode]);
+
+  const sortedBranches = useMemo(() => {
+    if (listSortMode === 'default') return filteredBranches;
+
+    return [...filteredBranches].sort((a, b) => {
+      const aValue = String(a || '').toLowerCase();
+      const bValue = String(b || '').toLowerCase();
+
+      if (listSortMode === 'alpha-asc') return aValue.localeCompare(bValue);
+      if (listSortMode === 'alpha-desc') return bValue.localeCompare(aValue);
+      if (listSortMode === 'num-asc') return parseNumeric(a) - parseNumeric(b);
+      if (listSortMode === 'num-desc') return parseNumeric(b) - parseNumeric(a);
+      return 0;
+    });
+  }, [filteredBranches, listSortMode]);
 
   // Initialize from URL parameters on mount
   useEffect(() => {
@@ -331,12 +445,14 @@ const PreventiveMaintenance = () => {
     const perPage = searchParams.get('perPage');
     const search = searchParams.get('search');
     const onlyWithPM = searchParams.get('onlyWithPM');
+    const assetId = searchParams.get('assetId');
     
     if (categoryFilter) setSelectedCategoryFilter(categoryFilter);
     if (page) setCurrentPage(parseInt(page));
     if (perPage) setItemsPerPage(parseInt(perPage));
     if (search) setSearchQuery(search);
     if (onlyWithPM) setShowOnlyWithPM(onlyWithPM === 'true');
+    if (assetId) setTargetAssetId(String(assetId));
     
     // Restore column filters
     const columnFiltersParam = searchParams.get('columnFilters');
@@ -608,6 +724,7 @@ const PreventiveMaintenance = () => {
     if (itemsPerPage !== 25) params.set('perPage', itemsPerPage.toString());
     if (searchQuery) params.set('search', searchQuery);
     if (showOnlyWithPM) params.set('onlyWithPM', 'true');
+    if (targetAssetId) params.set('assetId', targetAssetId);
     if (Object.keys(columnFilters).length > 0) {
       params.set('columnFilters', encodeURIComponent(JSON.stringify(columnFilters)));
     }
@@ -747,6 +864,61 @@ const PreventiveMaintenance = () => {
   Object.keys(groupedByCategory).forEach(category => {
     groupedByCategory[category].checklistItems.sort((a, b) => a.Checklist_ID - b.Checklist_ID);
   });
+
+  const getSortedAssetPMRecords = (asset) => {
+    return (asset?.allPMRecords || [])
+      .slice()
+      .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date));
+  };
+
+  const isUnsignedPMStatus = (status) => {
+    return (status || '').toLowerCase() !== 'completed';
+  };
+
+  const getUnsignedPMCountForAsset = (asset) => {
+    const sortedPMs = getSortedAssetPMRecords(asset);
+    if (sortedPMs.length === 0) return 0;
+    return sortedPMs.filter(pm => isUnsignedPMStatus(pm.PM_Status || pm.Status)).length;
+  };
+
+  const summaryCards = useMemo(() => {
+    const allAssets = [];
+
+    Object.keys(groupedByCategory).forEach((category) => {
+      const assets = Object.values(groupedByCategory[category]?.assets || {});
+      assets.forEach((asset) => {
+        allAssets.push({
+          ...asset,
+          categoryName: category
+        });
+      });
+    });
+
+    return {
+      totalAssets: allAssets.length,
+      unsignedPMs: allAssets.reduce((sum, asset) => sum + getUnsignedPMCountForAsset(asset), 0),
+      onlyOnePM: allAssets.filter(asset => asset.pmCount === 1).length,
+      noPMYet: allAssets.filter(asset => asset.pmCount === 0).length
+    };
+  }, [groupedByCategory]);
+
+  const syncedTableStats = useMemo(() => {
+    const pmRows = (pmRecords || []).filter(record => record.PM_ID != null);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const thisMonth = pmRows.filter((record) => {
+      if (!record.PM_Date) return false;
+      const pmDate = new Date(record.PM_Date);
+      return pmDate.getFullYear() === currentYear && pmDate.getMonth() === currentMonth;
+    }).length;
+
+    return {
+      total: pmRows.length,
+      thisMonth
+    };
+  }, [pmRecords]);
 
   const getCheckResultIcon = (isOk) => {
     if (isOk === 1 || isOk === true) {
@@ -1165,25 +1337,37 @@ const PreventiveMaintenance = () => {
   const handleCustomerChange = (e) => {
     const newCustomer = e.target.value;
     setSelectedCustomer(newCustomer);
-    
-    // Update URL parameters
+
+    const params = new URLSearchParams(searchParams);
     if (newCustomer) {
-      setSearchParams({ customer: newCustomer });
+      params.set('customer', newCustomer);
     } else {
-      setSearchParams({});
+      params.delete('customer');
+      params.delete('branch');
+      params.delete('assetId');
+      setTargetAssetId('');
+      setHasAutoOpenedTargetAsset(false);
     }
+    setSearchParams(params, { replace: true });
   };
 
   const handleBranchChange = (e) => {
     const newBranch = e.target.value;
     setSelectedBranch(newBranch);
-    
-    // Update URL parameters (keep customer parameter)
-    if (newBranch && selectedCustomer) {
-      setSearchParams({ customer: selectedCustomer, branch: newBranch });
-    } else if (selectedCustomer) {
-      setSearchParams({ customer: selectedCustomer });
+
+    const params = new URLSearchParams(searchParams);
+    if (selectedCustomer) {
+      params.set('customer', selectedCustomer);
     }
+    if (newBranch) {
+      params.set('branch', newBranch);
+    } else {
+      params.delete('branch');
+      params.delete('assetId');
+      setTargetAssetId('');
+      setHasAutoOpenedTargetAsset(false);
+    }
+    setSearchParams(params, { replace: true });
   };
 
   // PM Form Handlers
@@ -1213,6 +1397,54 @@ const PreventiveMaintenance = () => {
     }
   };
 
+  useEffect(() => {
+    if (!targetAssetId || hasAutoOpenedTargetAsset || showPMForm) {
+      return;
+    }
+
+    const openTargetAssetForm = async () => {
+      let targetAsset = pmRecords.find((record) => String(record.Asset_ID) === String(targetAssetId));
+
+      if (!targetAsset) {
+        try {
+          const response = await fetch(`${API_URL}/assets/detail/${targetAssetId}`);
+          if (response.ok) {
+            targetAsset = await response.json();
+          }
+        } catch (error) {
+          console.error('Failed to fetch deep-linked asset detail:', error);
+        }
+      }
+
+      if (!targetAsset) return;
+
+      if (targetAsset.Customer_ID) {
+        setSelectedCustomer(String(targetAsset.Customer_ID));
+      } else if (customers.length > 0) {
+        const matchedCustomer = customers.find((customer) =>
+          String(customer.Customer_Name || '').trim() === String(targetAsset.Customer_Name || '').trim()
+        );
+        if (matchedCustomer?.Customer_ID) {
+          setSelectedCustomer(String(matchedCustomer.Customer_ID));
+        }
+      }
+
+      if (targetAsset.Branch) {
+        setSelectedBranch(String(targetAsset.Branch));
+      }
+
+      const deepLinkSearchHint = targetAsset.Asset_Tag_ID || targetAsset.Asset_Serial_Number || '';
+      if (deepLinkSearchHint) {
+        setSearchQuery(deepLinkSearchHint);
+      }
+
+      setHasAutoOpenedTargetAsset(true);
+      await handleOpenPMForm(targetAsset);
+    };
+
+    openTargetAssetForm();
+  }, [targetAssetId, hasAutoOpenedTargetAsset, showPMForm, pmRecords, customers]);
+
   const handleClosePMForm = () => {
     setShowCancelDialog(true);
   };
@@ -1234,6 +1466,14 @@ const PreventiveMaintenance = () => {
     }));
   };
 
+  const handleSetAllChecklist = (isOk) => {
+    const nextResults = {};
+    checklistItems.forEach((item) => {
+      nextResults[item.Checklist_ID] = isOk;
+    });
+    setChecklistResults(nextResults);
+  };
+
   const handleChecklistRemarkChange = (checklistId, remark) => {
     setChecklistItemRemarks(prev => ({
       ...prev,
@@ -1252,7 +1492,9 @@ const PreventiveMaintenance = () => {
 
   const handleConfirmDeleteMode = () => {
     setShowDeleteConfirmation(false);
+    setShowOnlyWithPMBeforeDeleteMode(showOnlyWithPM);
     setDeleteMode(true);
+    setShowOnlyWithPM(true);
     setSelectedPMsForDelete([]);
     // Broadcast delete mode to sidebar
     sessionStorage.setItem('pmDeleteMode', 'true');
@@ -1265,6 +1507,7 @@ const PreventiveMaintenance = () => {
 
   const handleConfirmCancelDeleteMode = () => {
     setDeleteMode(false);
+    setShowOnlyWithPM(showOnlyWithPMBeforeDeleteMode);
     setSelectedPMsForDelete([]);
     // Clear delete mode from sidebar
     sessionStorage.removeItem('pmDeleteMode');
@@ -1280,6 +1523,29 @@ const PreventiveMaintenance = () => {
       } else {
         return [...prev, { pmId, pmDetails, assetDetails }];
       }
+    });
+  };
+
+  const handleToggleAssetForDelete = (assetDetails, pmRecords = []) => {
+    const validPMRecords = (pmRecords || []).filter(pm => pm && pm.PM_ID);
+    if (validPMRecords.length === 0) return;
+
+    const pmIds = validPMRecords.map(pm => pm.PM_ID);
+
+    setSelectedPMsForDelete(prev => {
+      const selectedSet = new Set(prev.map(item => item.pmId));
+      const allSelected = pmIds.every(id => selectedSet.has(id));
+
+      if (allSelected) {
+        return prev.filter(item => !pmIds.includes(item.pmId));
+      }
+
+      const next = prev.filter(item => !pmIds.includes(item.pmId));
+      validPMRecords.forEach(pm => {
+        next.push({ pmId: pm.PM_ID, pmDetails: pm, assetDetails });
+      });
+
+      return next;
     });
   };
 
@@ -1442,6 +1708,15 @@ const PreventiveMaintenance = () => {
     }
   };
 
+  const deepLinkedAssetRecord = useMemo(() => {
+    if (!targetAssetId) return null;
+    return pmRecords.find((record) => String(record.Asset_ID) === String(targetAssetId)) || null;
+  }, [pmRecords, targetAssetId]);
+
+  const deepLinkedAssetLabel = deepLinkedAssetRecord
+    ? (deepLinkedAssetRecord.Asset_Tag_ID || deepLinkedAssetRecord.Asset_Serial_Number || deepLinkedAssetRecord.Asset_ID)
+    : '';
+
   return (
     <div style={{ padding: '0' }}>
       <div style={{
@@ -1466,6 +1741,28 @@ const PreventiveMaintenance = () => {
           </div>
         </div>
         <div className="actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/pm-bulk-recipient')}
+            className="btn btn-primary"
+            style={{
+              ...headerButtonStyle,
+              ...((deleteMode || isCustomerRole()) && {
+                opacity: 0.6,
+                pointerEvents: 'none',
+                cursor: 'not-allowed',
+                backgroundColor: '#e0e0e0',
+                color: '#999'
+              })
+            }}
+            onMouseEnter={(e) => !isCustomerRole() && !deleteMode && handleHeaderButtonHover(e, true)}
+            onMouseLeave={(e) => !isCustomerRole() && !deleteMode && handleHeaderButtonHover(e, false)}
+            disabled={deleteMode || isCustomerRole()}
+            title={isCustomerRole() ? 'Customer accounts cannot access bulk recipient PM tools' : (deleteMode ? 'Cannot open bulk recipient PM tools while in delete mode' : 'Open recipient-based bulk PM and bulk sign page')}
+          >
+            <Users size={18} />
+            Bulk PM / Bulk Sign
+          </button>
+
           <button
             onClick={handleOpenChecklistManager}
             className="btn btn-primary"
@@ -1492,25 +1789,64 @@ const PreventiveMaintenance = () => {
 
       <div style={{ padding: '0 20px' }}>
 
+      {targetAssetId && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '14px',
+            border: `1px solid ${deepLinkedAssetRecord ? '#86efac' : '#fcd34d'}`,
+            background: deepLinkedAssetRecord ? '#f0fdf4' : '#fffbeb',
+            color: deepLinkedAssetRecord ? '#166534' : '#92400e'
+          }}
+        >
+          <div style={{ fontSize: '0.92rem', fontWeight: 600 }}>
+            {deepLinkedAssetRecord
+              ? `Opened from selected asset: ${deepLinkedAssetLabel}`
+              : 'Opened from asset detail. Matching asset is being prepared from current filters...'}
+          </div>
+        </div>
+      )}
+
       {/* Statistics Cards */}
-      {statistics && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '15px' }}>
-          <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '15px', marginBottom: '15px' }}>
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('total')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open all PM records page"
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Package size={32} style={{ opacity: 0.9 }} />
                 <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Total PM Records</div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{statistics.total}</div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>
+                {selectedCustomer && selectedBranch ? syncedTableStats.total : (statistics?.total ?? 0)}
+              </div>
             </div>
           </div>
 
-          <div 
-            className="card" 
-            style={{ 
-              padding: '20px', 
-              background: isCustomerRole() ? 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)' : 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', 
-              color: 'white', 
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: isCustomerRole() ? 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)' : 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              color: 'white',
               border: 'none',
               cursor: isCustomerRole() ? 'not-allowed' : 'pointer',
               transition: 'transform 0.2s, box-shadow 0.2s',
@@ -1529,31 +1865,155 @@ const PreventiveMaintenance = () => {
                 e.currentTarget.style.boxShadow = 'none';
               }
             }}
-            title={isCustomerRole() ? 'Customer accounts cannot access PM Schedule' : 'View PM Schedule'}
+            title={isCustomerRole() ? 'Customer accounts cannot access PM Calendar' : 'Open PM Calendar'}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Calendar size={32} style={{ opacity: 0.9 }} />
-              <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM Schedule</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Calendar size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM Calendar</div>
+              </div>
+              <ChevronRight size={26} style={{ opacity: 0.9 }} />
             </div>
           </div>
 
-          <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white', border: 'none' }}>
+          <div
+            className="card"
+            style={{ padding: '20px', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white', border: 'none', cursor: 'pointer' }}
+            onClick={() => openOverviewPage('month')}
+            title="Open PM this month page"
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Clock size={32} style={{ opacity: 0.9 }} />
                 <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>PM This Month</div>
               </div>
-              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{statistics.thisMonth}</div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>
+                {selectedCustomer && selectedBranch ? syncedTableStats.thisMonth : (statistics?.thisMonth ?? 0)}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('unsigned')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open unsigned PMs page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <AlertCircle size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Unsigned PMs</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.unsignedPMs}</div>
+            </div>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #ec4899 0%, #f472b6 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('one-pm')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open assets with one PM page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FileText size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>Only One PM</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.onlyOnePM}</div>
+            </div>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s'
+            }}
+            onClick={() => openOverviewPage('no-pm')}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.2)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+            title="Open assets with no PM page"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <Package size={32} style={{ opacity: 0.9 }} />
+                <div style={{ fontSize: '1rem', opacity: 0.9, fontWeight: '500' }}>No PM Done</div>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700' }}>{summaryCards.noPMYet}</div>
+            </div>
+          </div>
+      </div>
 
       {/* Filters */}
       <div className="card" style={{ marginBottom: '15px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', paddingBottom: '12px', borderBottom: '2px solid #3498db' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '15px', paddingBottom: '12px', borderBottom: '2px solid #3498db', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Filter size={22} color="#3498db" />
           <h3 style={{ margin: 0, color: '#2c3e50', fontSize: '1.1rem' }}>Filter PM Records</h3>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px' }}>
+            <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: '600' }}>List Order</span>
+            <select
+              value={listSortMode}
+              onChange={(e) => setListSortMode(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '10px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                backgroundColor: 'white',
+                color: '#374151',
+                fontSize: '0.95rem',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="default">Default</option>
+              <option value="alpha-asc">A-Z</option>
+              <option value="alpha-desc">Z-A</option>
+              <option value="num-asc">0-9</option>
+              <option value="num-desc">9-0</option>
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '15px' }}>
@@ -1565,7 +2025,7 @@ const PreventiveMaintenance = () => {
             <SearchableDropdown
               value={selectedCustomer}
               onChangeEvent={handleCustomerChange}
-              options={customers}
+              options={sortedCustomers}
               getOptionValue={(c) => c.Customer_ID}
               renderOption={(c) => {
                 const pmCount = customerPMCounts[c.Customer_ID] || 0;
@@ -1590,7 +2050,7 @@ const PreventiveMaintenance = () => {
             <SearchableDropdown
               value={selectedBranch}
               onChangeEvent={handleBranchChange}
-              options={branches}
+              options={sortedBranches}
               getOptionValue={(b) => b}
               renderOption={(b) => {
                 const pmCount = branchPMCounts[b] || 0;
@@ -1683,43 +2143,6 @@ const PreventiveMaintenance = () => {
               )}
             </div>
             
-            {/* Download Form Button */}
-            <button
-              onClick={() => setShowBulkDownloadModal(true)}
-              disabled={deleteMode}
-              style={{
-                padding: '14px 24px',
-                background: '#27ae60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: deleteMode ? 'not-allowed' : 'pointer',
-                fontSize: '1rem',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                opacity: deleteMode ? 0.5 : 1,
-                pointerEvents: deleteMode ? 'none' : 'auto'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#229954';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#27ae60';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <Download size={18} />
-              Download Form
-            </button>
-
             {/* Delete PM Records Button */}
             {!deleteMode ? (
               <button
@@ -1870,7 +2293,7 @@ const PreventiveMaintenance = () => {
           if (showOnlyWithPM) {
             filteredRecords = filteredRecords.filter(r => r.pmCount > 0);
           }
-          
+
           // Apply column filters
           const columnFilteredRecords = filteredRecords.filter(record => {
             for (const columnKey in columnFilters) {
@@ -2739,6 +3162,18 @@ const PreventiveMaintenance = () => {
                         <th style={{ minWidth: '200px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                             <span>PM Records</span>
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '600',
+                                color: showOnlyWithPM ? '#27ae60' : '#7f8c8d',
+                                background: showOnlyWithPM ? '#d5f4e6' : '#ecf0f1',
+                                padding: '2px 6px',
+                                borderRadius: '10px'
+                              }}
+                            >
+                              Only with PM
+                            </span>
                             <label 
                               style={{ 
                                 position: 'relative', 
@@ -2799,6 +3234,16 @@ const PreventiveMaintenance = () => {
                         </tr>
                       ) : (
                         paginatedRecords.map((asset, index) => {
+                        const sortedPMRecords = (asset.allPMRecords || [])
+                          .slice()
+                          .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date));
+                        const assetPMIds = sortedPMRecords.map(pm => pm.PM_ID);
+                        const selectedCountForAsset = assetPMIds.filter(
+                          pmId => selectedPMsForDelete.some(item => item.pmId === pmId)
+                        ).length;
+                        const isAssetFullySelected = assetPMIds.length > 0 && selectedCountForAsset === assetPMIds.length;
+                        const isAssetPartiallySelected = selectedCountForAsset > 0 && !isAssetFullySelected;
+
                         const resultsMap = {};
                         if (asset.checklist_results && Array.isArray(asset.checklist_results)) {
                           asset.checklist_results.forEach(result => {
@@ -2826,7 +3271,29 @@ const PreventiveMaintenance = () => {
                               borderRight: '1px solid #e0e0e0',
                               whiteSpace: 'nowrap'
                             }}>
-                              {startIndex + index + 1}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                {deleteMode && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isAssetFullySelected}
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.indeterminate = isAssetPartiallySelected;
+                                      }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={() => handleToggleAssetForDelete(asset, sortedPMRecords)}
+                                    disabled={assetPMIds.length === 0}
+                                    title={assetPMIds.length === 0 ? 'No PM records to select' : 'Select all PM records for this asset'}
+                                    style={{
+                                      cursor: assetPMIds.length === 0 ? 'not-allowed' : 'pointer',
+                                      width: '14px',
+                                      height: '14px'
+                                    }}
+                                  />
+                                )}
+                                <span>{startIndex + index + 1}</span>
+                              </div>
                             </td>
                             {/* Category Name */}
                             <td style={{
@@ -2899,10 +3366,44 @@ const PreventiveMaintenance = () => {
                             {/* PM Records */}
                             <td style={{ textAlign: 'center' }}>
                               <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                {asset.allPMRecords && asset.allPMRecords.length > 0 ? (
-                                  asset.allPMRecords
-                                    .sort((a, b) => new Date(a.PM_Date) - new Date(b.PM_Date))
-                                    .map((pm, pmIndex) => {
+                                {deleteMode && sortedPMRecords.length > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleAssetForDelete(asset, sortedPMRecords);
+                                    }}
+                                    style={{
+                                      padding: '6px 10px',
+                                      background: isAssetFullySelected ? '#34495e' : '#2c3e50',
+                                      color: 'white',
+                                      border: isAssetFullySelected ? '2px solid #1abc9c' : 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '0.8rem',
+                                      fontWeight: '700',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      transition: 'all 0.2s',
+                                      minWidth: '110px',
+                                      boxShadow: isAssetFullySelected ? '0 0 0 2px rgba(26, 188, 156, 0.25)' : '0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                    onMouseOver={(e) => {
+                                      e.currentTarget.style.background = '#1f2d3a';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseOut={(e) => {
+                                      e.currentTarget.style.background = isAssetFullySelected ? '#34495e' : '#2c3e50';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                    title={isAssetFullySelected ? 'Deselect all PM records for this asset' : 'Select all PM records for this asset'}
+                                  >
+                                    {isAssetFullySelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                                    {isAssetFullySelected ? 'Asset Selected' : `Select Asset (${sortedPMRecords.length})`}
+                                  </button>
+                                )}
+                                {sortedPMRecords.length > 0 ? (
+                                  sortedPMRecords.map((pm, pmIndex) => {
                                       const isInProcess = pm.PM_Status === 'In-Process';
                                       const isMarkedCompleted = pm.PM_Status === 'Marked as Completed';
                                       const bgColor = isInProcess ? '#f59e0b' : isMarkedCompleted ? '#14b8a6' : '#27ae60';
@@ -3603,6 +4104,42 @@ const PreventiveMaintenance = () => {
                 <h3 style={{ margin: '0 0 16px 0', color: '#2c3e50', fontSize: '1.1rem', fontWeight: '600' }}>
                   PM Checklist ({checklistItems.length} items)
                 </h3>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllChecklist(true)}
+                    style={{
+                      padding: '10px 18px',
+                      border: '2px solid #27ae60',
+                      borderRadius: '6px',
+                      background: '#27ae60',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    All Good
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetAllChecklist(false)}
+                    style={{
+                      padding: '10px 18px',
+                      border: '2px solid #e74c3c',
+                      borderRadius: '6px',
+                      background: '#e74c3c',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: '700',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    All Bad
+                  </button>
+                </div>
                 <div style={{
                   border: '1px solid #e0e0e0',
                   borderRadius: '8px',
@@ -4981,6 +5518,42 @@ const PreventiveMaintenance = () => {
                   onBlur={(e) => e.target.style.borderColor = '#ddd'}
                 />
               </div>
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ marginBottom: '8px', fontSize: '0.9rem', fontWeight: 700, color: '#2c3e50' }}>
+                  Download Options
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {[
+                    { value: 'signedOnly', label: 'Signed only' },
+                    { value: 'unsignedOnly', label: 'Unsigned only' },
+                    { value: 'all', label: 'All downloadable' }
+                  ].map((option) => {
+                    const active = bulkDownloadMode === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBulkDownloadMode(option.value)}
+                        style={{
+                          padding: '10px 14px',
+                          borderRadius: '999px',
+                          border: active ? '2px solid #27ae60' : '1px solid #d1d5db',
+                          background: active ? '#eafaf1' : 'white',
+                          color: active ? '#1f7a46' : '#4b5563',
+                          cursor: 'pointer',
+                          fontWeight: active ? '700' : '600',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '8px', color: '#7f8c8d', fontSize: '0.85rem' }}>
+                  Signed means completed with a signature. Unsigned means marked as completed without a signature.
+                </div>
+              </div>
             </div>
 
             {/* Two Boxes Container */}
@@ -5150,6 +5723,7 @@ const PreventiveMaintenance = () => {
                   ) : (
                     selectedAssets.map(asset => {
                       const assetPMRecords = asset.allPMRecords || [];
+                      const visiblePMRecords = assetPMRecords.filter((pm) => matchesBulkDownloadMode(pm.Status));
                       const selectedPMs = selectedPMRecords[asset.Asset_ID] || [];
                       
                       return (
@@ -5251,9 +5825,8 @@ const PreventiveMaintenance = () => {
                               </div>
                               
                               {/* Existing PM Records */}
-                              {assetPMRecords.length > 0 && assetPMRecords.map((pm, index) => {
+                              {visiblePMRecords.length > 0 && visiblePMRecords.map((pm, index) => {
                                   const isPMSelected = selectedPMs.includes(pm.PM_ID);
-                                  const isDisabled = pm.Status === 'In-Process'; // Only In-Process is disabled, Marked as Completed allowed
                                   return (
                                     <div
                                       key={pm.PM_ID}
@@ -5261,19 +5834,17 @@ const PreventiveMaintenance = () => {
                                         padding: '6px 12px',
                                         border: isPMSelected ? '2px solid #3498db' : '1px solid #ddd',
                                         borderRadius: '6px',
-                                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                                        background: isDisabled ? '#f5f5f5' : (isPMSelected ? '#e3f2fd' : 'white'),
+                                        cursor: 'pointer',
+                                        background: isPMSelected ? '#e3f2fd' : 'white',
                                         transition: 'all 0.2s',
                                         fontSize: '0.85rem',
                                         fontWeight: isPMSelected ? '600' : '500',
-                                        color: isDisabled ? '#bdc3c7' : (isPMSelected ? '#2c3e50' : '#666'),
+                                        color: isPMSelected ? '#2c3e50' : '#666',
                                         whiteSpace: 'nowrap',
                                         boxShadow: isPMSelected ? '0 2px 4px rgba(52, 152, 219, 0.2)' : 'none',
-                                        opacity: isDisabled ? 0.5 : 1,
                                         position: 'relative'
                                       }}
                                       onClick={() => {
-                                        if (isDisabled) return;
                                         const currentPMs = selectedPMRecords[asset.Asset_ID] || [];
                                         if (isPMSelected) {
                                           setSelectedPMRecords({
@@ -5288,25 +5859,29 @@ const PreventiveMaintenance = () => {
                                         }
                                       }}
                                       onMouseOver={(e) => {
-                                        if (!isPMSelected && !isDisabled) {
+                                        if (!isPMSelected) {
                                           e.currentTarget.style.background = '#f0f0f0';
                                           e.currentTarget.style.borderColor = '#3498db';
                                         }
                                       }}
                                       onMouseOut={(e) => {
-                                        if (!isPMSelected && !isDisabled) {
+                                        if (!isPMSelected) {
                                           e.currentTarget.style.background = 'white';
                                           e.currentTarget.style.borderColor = '#ddd';
                                         }
                                       }}
-                                      title={isDisabled ? `Cannot download - Status: In-Process (requires signature)` : `PM Date: ${formatDate(pm.PM_Date)} - Status: ${pm.Status || 'Completed'}`}
+                                      title={`PM Date: ${formatDate(pm.PM_Date)} - Status: ${pm.Status || 'Completed'}`}
                                     >
                                       {isPMSelected && <span style={{ marginRight: '4px', color: '#27ae60' }}>✓</span>}
-                                      {isDisabled && <span style={{ marginRight: '4px', color: '#e74c3c' }}>🔒</span>}
                                       {index + 1}
                                     </div>
                                   );
                                 })}
+                              {visiblePMRecords.length === 0 && (
+                                <div style={{ color: '#7f8c8d', fontSize: '0.85rem' }}>
+                                  No downloadable PM forms for this option.
+                                </div>
+                              )}
                             </div>
 
                             {/* Remove Button */}
@@ -5872,7 +6447,7 @@ const PreventiveMaintenance = () => {
             
             <div style={{ marginBottom: '20px', padding: '15px', background: '#fee', border: '1px solid #f5c6cb', borderRadius: '8px' }}>
               <p style={{ margin: 0, fontSize: '1.1rem', color: '#721c24', fontWeight: '600' }}>
-                {deletingSummary.length} PM record(s) will be permanently deleted
+                {deletingSummary.length} PM record(s) will be moved to trash (soft delete)
               </p>
             </div>
 
@@ -5933,8 +6508,8 @@ const PreventiveMaintenance = () => {
 
             <div style={{ padding: '15px', background: '#fff3cd', border: '1px solid #ffc107', borderRadius: '8px', marginBottom: '20px' }}>
               <p style={{ margin: 0, fontSize: '0.95rem', color: '#856404', lineHeight: '1.5' }}>
-                <strong>Warning:</strong> This action will permanently delete the selected PM records from the database. 
-                All associated checklist results will also be deleted. This action cannot be undone.
+                <strong>Warning:</strong> This action will move the selected PM records to trash (soft delete). 
+                Associated checklist results will be hidden with the PM records. Assets are not deleted.
               </p>
             </div>
 

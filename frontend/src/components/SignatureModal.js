@@ -6,6 +6,8 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [signatureMode, setSignatureMode] = useState('draw');
+  const [typedRecipientName, setTypedRecipientName] = useState('');
   // "Signed on Behalf" toggle and fields
   const [onBehalf, setOnBehalf] = useState(false);
   const [onBehalfName, setOnBehalfName] = useState('');
@@ -85,29 +87,60 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
   };
 
   const handleConfirm = async () => {
-    if (!hasSignature) {
+    if (signatureMode === 'draw' && !hasSignature) {
       alert('Please draw your signature first');
       return;
     }
 
-    if (onBehalf) {
-      if (!onBehalfName.trim() || !onBehalfDepartment.trim()) {
-        alert('Please fill in Name and Department for Signed on Behalf');
+    if (signatureMode === 'draw' && onBehalf) {
+      if (!onBehalfName.trim()) {
+        alert('Please fill in Name for Signed on Behalf');
         return;
       }
     }
 
-    const canvas = canvasRef.current;
-    const signatureBase64 = canvas.toDataURL('image/png');
-    
-    setSubmitting(true);
-    try {
-      await onConfirm({
+    if (signatureMode === 'full-name' && !typedRecipientName.trim()) {
+      alert('Please enter full recipient name');
+      return;
+    }
+
+    let signatureBase64 = '';
+    let payload = {};
+
+    if (signatureMode === 'draw') {
+      const canvas = canvasRef.current;
+      signatureBase64 = canvas.toDataURL('image/png');
+      payload = {
         signature: signatureBase64,
         onBehalf,
         name: onBehalf ? onBehalfName.trim() : '',
         department: onBehalf ? onBehalfDepartment.trim() : ''
-      });
+      };
+    } else {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 600;
+      tempCanvas.height = 300;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      ctx.fillStyle = '#111827';
+      ctx.font = 'bold 42px Segoe Script, cursive';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(typedRecipientName.trim(), tempCanvas.width / 2, tempCanvas.height / 2);
+      signatureBase64 = tempCanvas.toDataURL('image/png');
+      payload = {
+        signature: signatureBase64,
+        onBehalf: true,
+        name: typedRecipientName.trim(),
+        department: 'Recipient Name Sign',
+        fromFullName: true
+      };
+    }
+    
+    setSubmitting(true);
+    try {
+      await onConfirm(payload);
     } catch (error) {
       console.error('Error submitting signature:', error);
       alert('Failed to save signature. Please try again.');
@@ -159,7 +192,7 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
                 fontSize: '1.5rem',
                 fontWeight: '600'
               }}>
-                User Signature
+                Recipient Signature
               </h2>
               <p style={{ 
                 margin: '5px 0 0 0', 
@@ -207,10 +240,49 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
           gap: '10px'
         }}>
           <PenTool size={18} />
-          <span>Please sign in the box below using your mouse or touchscreen</span>
+          <span>Choose digital draw signature or type recipient full name</span>
+        </div>
+
+        {/* Signature Mode */}
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '16px'
+        }}>
+          <button
+            type="button"
+            onClick={() => setSignatureMode('draw')}
+            style={{
+              padding: '9px 14px',
+              borderRadius: '8px',
+              border: signatureMode === 'draw' ? '2px solid #4f46e5' : '1px solid #d1d5db',
+              background: signatureMode === 'draw' ? '#eef2ff' : 'white',
+              color: '#1f2937',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            Digital Signature
+          </button>
+          <button
+            type="button"
+            onClick={() => setSignatureMode('full-name')}
+            style={{
+              padding: '9px 14px',
+              borderRadius: '8px',
+              border: signatureMode === 'full-name' ? '2px solid #4f46e5' : '1px solid #d1d5db',
+              background: signatureMode === 'full-name' ? '#eef2ff' : 'white',
+              color: '#1f2937',
+              fontWeight: 700,
+              cursor: 'pointer'
+            }}
+          >
+            Sign By Full Name
+          </button>
         </div>
 
         {/* Signed on Behalf Toggle (prominent) */}
+        {signatureMode === 'draw' && (
         <div style={{
           border: '1px solid #e9ecef',
           borderRadius: '10px',
@@ -310,7 +382,7 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
                   type="text"
                   value={onBehalfDepartment}
                   onChange={(e) => setOnBehalfDepartment(e.target.value)}
-                  placeholder="Enter department"
+                  placeholder="Enter department (optional)"
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -323,8 +395,40 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
             </div>
           )}
         </div>
+        )}
+
+        {signatureMode === 'full-name' && (
+          <div style={{
+            border: '1px solid #fbbf24',
+            borderRadius: '10px',
+            padding: '14px 16px',
+            marginBottom: '16px',
+            background: '#fffbeb'
+          }}>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: '#92400e', marginBottom: '8px' }}>
+              Recipient Full Name
+            </label>
+            <input
+              type="text"
+              value={typedRecipientName}
+              onChange={(e) => setTypedRecipientName(e.target.value)}
+              placeholder="Enter recipient full name"
+              style={{
+                width: '100%',
+                padding: '10px',
+                border: '1px solid #f59e0b',
+                borderRadius: '6px',
+                fontSize: '0.95rem'
+              }}
+            />
+            <div style={{ marginTop: '8px', fontSize: '0.82rem', color: '#92400e' }}>
+              Use this when recipient cannot provide digital signature at that moment.
+            </div>
+          </div>
+        )}
 
         {/* Canvas Container */}
+        {signatureMode === 'draw' && (
         <div style={{
           border: '2px dashed #bdc3c7',
           borderRadius: '12px',
@@ -390,10 +494,13 @@ const SignatureModal = ({ isOpen, onClose, onConfirm, pmId }) => {
             Clear
           </button>
         </div>
+        )}
 
         {/* Action Buttons */}
         {(() => {
-          const canConfirm = hasSignature && (!onBehalf || (onBehalfName.trim().length > 0 && onBehalfDepartment.trim().length > 0));
+          const canConfirm = signatureMode === 'draw'
+            ? (hasSignature && (!onBehalf || (onBehalfName.trim().length > 0)))
+            : typedRecipientName.trim().length > 0;
           return (
         <div style={{ 
           display: 'flex', 
