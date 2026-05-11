@@ -1055,23 +1055,60 @@ const getPMReport = async (req, res, next) => {
  */
 const bulkDownloadPM = async (req, res, next) => {
   try {
-    const { pmIds = [], blankAssetIds = [] } = req.body;
+    let { pmIds = [], blankAssetIds = [], customer = null, branch = null, category = null, startDate = null, endDate = null } = req.body;
 
-    // Validate at least one type of ID is provided
-    if ((!pmIds || !Array.isArray(pmIds)) && (!blankAssetIds || !Array.isArray(blankAssetIds))) {
-      logger.error('Invalid request in bulk download');
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'pmIds or blankAssetIds array is required'
-      });
-    }
+    pmIds = Array.isArray(pmIds) ? pmIds : [];
+    blankAssetIds = Array.isArray(blankAssetIds) ? blankAssetIds : [];
 
+    // If no explicit IDs provided, allow filters (customer/branch/category/date) to select PM records
     if (pmIds.length === 0 && blankAssetIds.length === 0) {
-      logger.error('No IDs provided in bulk download request');
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'At least one PM ID or blank asset ID must be provided'
-      });
+      if (!customer && !branch && !category && !startDate && !endDate) {
+        logger.error('No IDs or filters provided in bulk download request');
+        return res.status(400).json({
+          error: 'Invalid request',
+          message: 'Provide pmIds/blankAssetIds or at least one filter (customer, branch, category, startDate/endDate)'
+        });
+      }
+
+      // Build query to fetch PM IDs based on filters
+      const conditions = ['pm.deleted_at IS NULL'];
+      const params = [];
+
+      if (startDate && endDate) {
+        conditions.push('DATE(pm.PM_Date) BETWEEN ? AND ?');
+        params.push(startDate, endDate);
+      }
+
+      if (customer) {
+        conditions.push('(c.Customer_Name = ? OR c.Customer_Ref_Number = ? OR i.Customer_ID = ?)');
+        params.push(customer, customer, customer);
+      }
+
+      if (branch) {
+        conditions.push('c.Branch = ?');
+        params.push(branch);
+      }
+
+      if (category) {
+        conditions.push('cat.Category = ?');
+        params.push(category);
+      }
+
+      const sql = `SELECT DISTINCT pm.PM_ID FROM PMAINTENANCE pm
+        LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+        LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
+        LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
+        LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY pm.PM_Date DESC`;
+
+      const [rows] = await pool.execute(sql, params);
+      pmIds = rows.map((r) => r.PM_ID);
+
+      if (!pmIds || pmIds.length === 0) {
+        logger.error('No PM records found for provided filters');
+        return res.status(404).json({ error: 'No PM records found for provided filters' });
+      }
     }
 
     logger.info(`📦 Bulk download requested - PM records: ${pmIds.length}, Blank forms: ${blankAssetIds.length}`);

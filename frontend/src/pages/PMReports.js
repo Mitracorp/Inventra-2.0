@@ -50,6 +50,8 @@ const PMReports = () => {
   // State for filters
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedContract, setSelectedContract] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
   const reportType = 'detailed';
   const [bulkDownloadPmScope, setBulkDownloadPmScope] = useState('pm1');
   const [bulkDownloadSignatureScope, setBulkDownloadSignatureScope] = useState('signedOnly');
@@ -78,6 +80,14 @@ const PMReports = () => {
 
         setCustomers(Array.isArray(customersData) ? customersData : []);
         setContracts(Array.isArray(projectsData) ? projectsData : []);
+        // fetch categories for report filter
+        try {
+          const catResp = await fetchJson(`${apiBaseUrl}/pm/categories`);
+          const catData = await catResp.json();
+          setCategories(Array.isArray(catData) ? catData : []);
+        } catch (err) {
+          console.warn('Failed to load categories', err);
+        }
       } catch (error) {
         console.error('Error fetching customers and contracts:', error);
         toast.error('Failed to load customers');
@@ -112,6 +122,7 @@ const PMReports = () => {
         reportType,
         customerId: selectedCustomer || null,
         projectId: selectedContract || null,
+        category: selectedCategory || null,
         startDate: startDate || null,
         endDate: endDate || null,
         dateRange,
@@ -270,6 +281,23 @@ const PMReports = () => {
               </select>
             </div>
           )}
+
+          {/* Category Filter */}
+          <div className="filter-group">
+            <label>Category (Optional)</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.Category_ID || c.Category} value={c.Category || c.Category}>
+                  {c.Category || c.Category}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="filter-group">
             <label>Bulk Download PM Scope</label>

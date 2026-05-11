@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckSquare, PenTool, Search, Users, Wrench } from 'lucide-react';
+import { ArrowLeft, CheckSquare, PenTool, Search, Users } from 'lucide-react';
 import usePageTitle from '../hooks/usePageTitle';
 import SignatureModal from '../components/SignatureModal';
 import { API_URL } from '../config/api';
@@ -18,11 +18,7 @@ const PMBulkRecipientOps = () => {
   const [loadingRecipientData, setLoadingRecipientData] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [selectedAssetIds, setSelectedAssetIds] = useState([]);
   const [selectedPmIds, setSelectedPmIds] = useState([]);
-  const [pmDate, setPmDate] = useState(new Date().toISOString().slice(0, 10));
-  const [pmRemarks, setPmRemarks] = useState('Bulk PM created by recipient operation');
-  const [submittingBulkPM, setSubmittingBulkPM] = useState(false);
   const [showBulkSignModal, setShowBulkSignModal] = useState(false);
   const [submittingBulkSign, setSubmittingBulkSign] = useState(false);
 
@@ -60,7 +56,6 @@ const PMBulkRecipientOps = () => {
     const fetchRecipientData = async () => {
       if (!recipientId) {
         setRecipientData(null);
-        setSelectedAssetIds([]);
         setSelectedPmIds([]);
         return;
       }
@@ -79,7 +74,6 @@ const PMBulkRecipientOps = () => {
         }
 
         setRecipientData(payload.data);
-        setSelectedAssetIds([]);
         setSelectedPmIds([]);
       } catch (error) {
         toast.error(error.message || 'Failed to load recipient data');
@@ -122,15 +116,6 @@ const PMBulkRecipientOps = () => {
     });
   }, [recipientData, searchQuery]);
 
-  const toggleAssetSelection = (assetId) => {
-    setSelectedAssetIds((prev) => {
-      if (prev.includes(assetId)) {
-        return prev.filter((id) => id !== assetId);
-      }
-      return [...prev, assetId];
-    });
-  };
-
   const togglePmSelection = (pmId) => {
     setSelectedPmIds((prev) => {
       if (prev.includes(pmId)) {
@@ -139,71 +124,10 @@ const PMBulkRecipientOps = () => {
       return [...prev, pmId];
     });
   };
-
-  const toggleSelectAllAssets = () => {
-    const visibleIds = filteredAssets.map((asset) => Number(asset.Asset_ID));
-    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedAssetIds.includes(id));
-    setSelectedAssetIds(allSelected ? [] : visibleIds);
-  };
-
   const toggleSelectAllUnsignedPMs = () => {
     const visibleIds = filteredUnsignedPMs.map((pm) => Number(pm.PM_ID));
     const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedPmIds.includes(id));
     setSelectedPmIds(allSelected ? [] : visibleIds);
-  };
-
-  const handleBulkCreatePM = async () => {
-    if (!recipientId) {
-      toast.error('Please select a recipient first');
-      return;
-    }
-
-    if (selectedAssetIds.length === 0) {
-      toast.error('Please select at least one asset for bulk PM');
-      return;
-    }
-
-    if (!pmDate) {
-      toast.error('Please choose PM date');
-      return;
-    }
-
-    try {
-      setSubmittingBulkPM(true);
-      const response = await fetch(`${API_URL}/pm/bulk-create-by-recipient`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          recipientId: Number(recipientId),
-          assetIds: selectedAssetIds,
-          pmDate,
-          remarks: pmRemarks
-        })
-      });
-
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || 'Bulk PM creation failed');
-      }
-
-      toast.success(payload.message || 'Bulk PM created successfully');
-
-      const refreshResponse = await fetch(`${API_URL}/pm/recipient/${recipientId}/assets`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const refreshPayload = await refreshResponse.json();
-      if (refreshResponse.ok && refreshPayload.success) {
-        setRecipientData(refreshPayload.data);
-        setSelectedAssetIds([]);
-      }
-    } catch (error) {
-      toast.error(error.message || 'Bulk PM creation failed');
-    } finally {
-      setSubmittingBulkPM(false);
-    }
   };
 
   const handleConfirmBulkSign = async (payload) => {
@@ -362,87 +286,7 @@ const PMBulkRecipientOps = () => {
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, color: '#1f2937', fontSize: '1.05rem' }}>Bulk PM Creation (Selected Assets)</h3>
-              <button
-                onClick={toggleSelectAllAssets}
-                style={{ border: '1px solid #cbd5e1', background: 'white', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                <CheckSquare size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                {filteredAssets.length > 0 && filteredAssets.every((asset) => selectedAssetIds.includes(Number(asset.Asset_ID))) ? 'Unselect All' : 'Select All'}
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: '10px', marginBottom: '10px' }}>
-              <input
-                type="date"
-                value={pmDate}
-                onChange={(e) => setPmDate(e.target.value)}
-                style={{ padding: '10px', border: '1px solid #d1d5db', borderRadius: '8px' }}
-              />
-              <input
-                type="text"
-                value={pmRemarks}
-                onChange={(e) => setPmRemarks(e.target.value)}
-                placeholder="Remarks for all selected assets"
-                style={{ padding: '10px', border: '1px solid #d1d5db', borderRadius: '8px' }}
-              />
-              <button
-                onClick={handleBulkCreatePM}
-                disabled={submittingBulkPM || selectedAssetIds.length === 0}
-                style={{
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  color: 'white',
-                  background: submittingBulkPM || selectedAssetIds.length === 0 ? '#94a3b8' : '#2563eb',
-                  cursor: submittingBulkPM || selectedAssetIds.length === 0 ? 'not-allowed' : 'pointer',
-                  fontWeight: 700,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Wrench size={15} />
-                Create Bulk PM
-              </button>
-            </div>
-
-            <div style={{ overflowX: 'auto', maxHeight: '290px', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Select</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Asset Tag</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Item</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>Category</th>
-                    <th style={{ textAlign: 'left', padding: '8px' }}>PM Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAssets.map((asset) => {
-                    const id = Number(asset.Asset_ID);
-                    return (
-                      <tr key={asset.Asset_ID} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '8px' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedAssetIds.includes(id)}
-                            onChange={() => toggleAssetSelection(id)}
-                          />
-                        </td>
-                        <td style={{ padding: '8px' }}>{asset.Asset_Tag_ID || '-'}</td>
-                        <td style={{ padding: '8px' }}>{asset.Item_Name || '-'}</td>
-                        <td style={{ padding: '8px' }}>{asset.Category || '-'}</td>
-                        <td style={{ padding: '8px', fontWeight: 700 }}>{asset.PM_Count}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Bulk PM Creation removed - only bulk signing is available now */}
 
           <div className="card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>

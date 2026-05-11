@@ -54,7 +54,7 @@ const getPeriodLabel = (dateRange, startDate, endDate, start, end) => {
   return `${start || 'N/A'} to ${end || 'N/A'}`;
 };
 
-const buildWhereClause = (start, end, customerId, projectId, completedOnly = false) => {
+const buildWhereClause = (start, end, customerId, projectId, category, completedOnly = false) => {
   const conditions = ['pm.deleted_at IS NULL'];
   const params = [];
 
@@ -71,6 +71,11 @@ const buildWhereClause = (start, end, customerId, projectId, completedOnly = fal
   if (projectId) {
     conditions.push('i.Project_ID = ?');
     params.push(projectId);
+  }
+
+  if (category) {
+    conditions.push('cat.Category = ?');
+    params.push(category);
   }
 
   if (completedOnly) {
@@ -94,8 +99,8 @@ const fetchCustomerName = async (customerId) => {
   }
 };
 
-const fetchReportDataset = async ({ start, end, customerId, projectId, completedOnly = false }) => {
-  const { whereClause, params } = buildWhereClause(start, end, customerId, projectId, completedOnly);
+const fetchReportDataset = async ({ start, end, customerId, projectId, category, completedOnly = false }) => {
+  const { whereClause, params } = buildWhereClause(start, end, customerId, projectId, category, completedOnly);
 
   const statusQuery = `
     SELECT
@@ -103,6 +108,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
       COUNT(*) as count
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+    LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
     LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
@@ -114,6 +120,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
     SELECT COUNT(DISTINCT pm.Asset_ID) as totalAssets
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+    LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
     LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
@@ -153,6 +160,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
       COUNT(*) as total
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+    LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
     LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
     WHERE ${whereClause}
@@ -168,6 +176,7 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
       COUNT(*) as total
     FROM PMAINTENANCE pm
     LEFT JOIN ASSET a ON pm.Asset_ID = a.Asset_ID
+    LEFT JOIN CATEGORY cat ON a.Category_ID = cat.Category_ID
     LEFT JOIN INVENTORY i ON a.Asset_ID = i.Asset_ID
     LEFT JOIN PROJECT p ON i.Project_ID = p.Project_ID
     LEFT JOIN CUSTOMER c ON i.Customer_ID = c.Customer_ID
@@ -226,11 +235,11 @@ const fetchReportDataset = async ({ start, end, customerId, projectId, completed
 // Get PM report data (on-demand)
 const generatePMReport = async (req, res) => {
   try {
-    const { reportType, customerId, projectId, startDate, endDate, dateRange, completedOnly = false } = req.body;
+    const { reportType, customerId, projectId, category, startDate, endDate, dateRange, completedOnly = false } = req.body;
     const { start, end } = getDateRange(startDate, endDate, dateRange);
 
     const customerName = await fetchCustomerName(customerId);
-    const dataset = await fetchReportDataset({ start, end, customerId, projectId, completedOnly });
+    const dataset = await fetchReportDataset({ start, end, customerId, projectId, category, completedOnly });
     const allPmRecords = dataset.records.map((record) => ({
       PM_ID: record.PM_ID,
       PM_Sequence: Number(record.PM_Sequence) || 1,
@@ -260,10 +269,10 @@ const generatePMReport = async (req, res) => {
 // Download PM report as Excel
 const downloadPMReport = async (req, res) => {
   try {
-    const { reportType, customerId, projectId, startDate, endDate, dateRange, completedOnly = false } = req.body;
+    const { reportType, customerId, projectId, category, startDate, endDate, dateRange, completedOnly = false } = req.body;
     const { start, end } = getDateRange(startDate, endDate, dateRange);
     const customerName = await fetchCustomerName(customerId);
-    const dataset = await fetchReportDataset({ start, end, customerId, projectId, completedOnly });
+    const dataset = await fetchReportDataset({ start, end, customerId, projectId, category, completedOnly });
     const periodLabel = getPeriodLabel(dateRange, startDate, endDate, start, end);
     const completionRate = dataset.metrics.total > 0
       ? `${Math.round((dataset.metrics.completed / dataset.metrics.total) * 100)}%`
@@ -471,7 +480,8 @@ const downloadPMReport = async (req, res) => {
 // Get PM Statistics for dashboard
 const getPMReportStatistics = async (req, res) => {
   try {
-    const dataset = await fetchReportDataset({ start: null, end: null, customerId: null, projectId: null });
+    const { customerId = null, projectId = null, category = null } = req.query || {};
+    const dataset = await fetchReportDataset({ start: null, end: null, customerId, projectId, category });
     res.json({
       total: dataset.metrics.total,
       completed: dataset.metrics.completed,
