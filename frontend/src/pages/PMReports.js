@@ -49,6 +49,7 @@ const PMReports = () => {
 
   // State for filters
   const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedContract, setSelectedContract] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -61,6 +62,7 @@ const PMReports = () => {
 
   // State for data
   const [customers, setCustomers] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [reportData, setReportData] = useState(null);
@@ -112,7 +114,26 @@ const PMReports = () => {
   const handleCustomerChange = (e) => {
     const customerId = e.target.value;
     setSelectedCustomer(customerId);
+    setSelectedBranch('');
     setSelectedContract('');
+    
+    // Fetch branches for selected customer
+    if (customerId) {
+      fetchBranchesForCustomer(customerId);
+    } else {
+      setBranches([]);
+    }
+  };
+
+  const fetchBranchesForCustomer = async (customerId) => {
+    try {
+      const response = await fetchJson(`${apiBaseUrl}/pm/customers/${customerId}/branches`);
+      const branchesData = await response.json();
+      setBranches(Array.isArray(branchesData) ? branchesData : []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      setBranches([]);
+    }
   };
 
   const handleBulkDownloadForms = async () => {
@@ -121,6 +142,7 @@ const PMReports = () => {
       const filters = {
         reportType,
         customerId: selectedCustomer || null,
+        branchId: selectedBranch || null,
         projectId: selectedContract || null,
         category: selectedCategory || null,
         startDate: startDate || null,
@@ -262,6 +284,25 @@ const PMReports = () => {
               ))}
             </select>
           </div>
+
+          {/* Branch Filter */}
+          {selectedCustomer && branches.length > 0 && (
+            <div className="filter-group">
+              <label>Branch (Optional)</label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                className="filter-select"
+              >
+                <option value="">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.Branch_ID} value={branch.Branch_ID}>
+                    {branch.Branch_Name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Contract/Project Filter */}
           {selectedCustomer && getFilteredContracts().length > 0 && (
