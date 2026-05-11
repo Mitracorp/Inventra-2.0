@@ -296,8 +296,8 @@ const PMReports = () => {
               >
                 <option value="">All Branches</option>
                 {branches.map((branch) => (
-                  <option key={branch.Branch_ID} value={branch.Branch_ID}>
-                    {branch.Branch_Name}
+                  <option key={branch} value={branch}>
+                    {branch}
                   </option>
                 ))}
               </select>
