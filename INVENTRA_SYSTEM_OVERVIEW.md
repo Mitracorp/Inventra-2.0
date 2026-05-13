@@ -21,7 +21,7 @@ This document provides a brief, high-level overview of Inventra’s architecture
 ## Runtime & Configuration
 - Environment: `NODE_ENV=development`, backend port `PORT=5002`.
 - URLs & CORS: `FRONTEND_URL` and `CORS_ORIGIN` restrict allowed origins.
-- Secrets: `SESSION_SECRET`, `JWT_SECRET` (must be strong, private values).
+- Secrets: `SESSION_SECRET`, `JWT_SECRET` must be generated locally for production and kept private.
 - Uploads: `UPLOAD_DIR` and `MAX_FILE_SIZE` control file storage limits.
 
 ## Key Modules & Functions (Surface Level)

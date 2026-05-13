@@ -198,7 +198,7 @@ if (process.env.NODE_ENV === 'production') {
     });
   });
 } else {
-  // In development, show a message
+  // In development, show a messag
   app.get('*', (req, res) => {
     res.json({
       success: true,
