@@ -11,11 +11,6 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Install backend production dependencies.
-    # --no-package-lock prevents npm from writing/updating package-lock.json,
-    # which would leave the working tree dirty and block the next cPanel deploy.
-    - cd backend && npm install --production --no-package-lock
-
     # Build frontend on the server so new JS/CSS changes are included every deploy.
     # react-scripts build needs devDependencies, so do not use --production here.
     - cd frontend && npm install --no-package-lock
