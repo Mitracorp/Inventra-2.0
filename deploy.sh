@@ -21,6 +21,7 @@ PUBLIC_DIR="${PUBLIC_DIR:-$HOME/public_html/inventra.ivms2006.com}"
 DEPLOY_FRONTEND_TO_PUBLIC_HTML="${DEPLOY_FRONTEND_TO_PUBLIC_HTML:-1}"
 RUN_MIGRATIONS="${RUN_MIGRATIONS:-0}"
 CPANEL_NODE_APP_ROOT="${CPANEL_NODE_APP_ROOT:-$APP_DIR/backend}"
+NPM_CACHE_ROOT="${NPM_CACHE_ROOT:-/tmp/inventra-npm-cache}"
 
 need_cmd git
 need_cmd npm
@@ -49,9 +50,8 @@ fi
 cd "$APP_DIR"
 
 export NODE_ENV=production
-export npm_config_cache="$APP_DIR/.npm-cache"
 
-mkdir -p "$npm_config_cache"
+mkdir -p "$NPM_CACHE_ROOT/backend" "$NPM_CACHE_ROOT/frontend"
 
 ensure_clean_node_modules "$APP_DIR/node_modules"
 
@@ -76,6 +76,7 @@ fi
 log "Installing backend dependencies"
 cd "$APP_DIR/backend"
 ensure_clean_node_modules "$APP_DIR/backend/node_modules"
+export npm_config_cache="$NPM_CACHE_ROOT/backend"
 npm ci --omit=dev || npm install --production
 
 log "Ensuring runtime directories"
@@ -92,9 +93,7 @@ fi
 
 log "Building frontend"
 cd "$APP_DIR/frontend"
-npm_config_cache="$APP_DIR/.npm-cache-frontend"
-export npm_config_cache
-mkdir -p "$npm_config_cache"
+export npm_config_cache="$NPM_CACHE_ROOT/frontend"
 npm ci --omit=dev || npm install --production
 npm run build
 
