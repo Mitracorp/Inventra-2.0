@@ -19,7 +19,7 @@ This document provides a brief, high-level overview of Inventra’s architecture
 - Access: Backend connects using environment variables in [.env.production](.env.production) and handles queries through model/service layers.
 
 ## Runtime & Configuration
-- Environment: `NODE_ENV=development`, backend port `PORT=5000`.
+- Environment: `NODE_ENV=development`, backend port `PORT=5002`.
 - URLs & CORS: `FRONTEND_URL` and `CORS_ORIGIN` restrict allowed origins.
 - Secrets: `SESSION_SECRET`, `JWT_SECRET` (must be strong, private values).
 - Uploads: `UPLOAD_DIR` and `MAX_FILE_SIZE` control file storage limits.
@@ -39,7 +39,7 @@ This document provides a brief, high-level overview of Inventra’s architecture
 4. JSON response returns to the frontend; errors are routed through centralized middleware.
 
 ## Deployment Notes
-- Backend runs as a Node.js app on port 5000; frontend is deployed as a static React build on the production domain.
+- Backend runs as a Node.js app on port 5002; frontend is deployed as a static React build on the production domain.
 - Production settings and credentials are managed via environment variables in [.env.production](.env.production).
 
 ## Note on Scope

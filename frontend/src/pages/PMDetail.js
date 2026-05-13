@@ -215,14 +215,14 @@ const PMDetail = () => {
       fetchPMDetail();
       
       // Clear message after 5 seconds
-      setTimeout(() => setUploadMessage(null), 5000);
+      setTimeout(() => setUploadMessage(null), 5002);
     } catch (err) {
       console.error('Error deleting acknowledgement:', err);
       setUploadMessage({ 
         type: 'error', 
         text: err.message || 'Failed to delete file. Please try again.' 
       });
-      setTimeout(() => setUploadMessage(null), 5000);
+      setTimeout(() => setUploadMessage(null), 5002);
     } finally {
       setDeletingAck(false);
     }
@@ -278,14 +278,14 @@ const PMDetail = () => {
       fetchPMDetail();
       
       // Clear message after 5 seconds
-      setTimeout(() => setUploadMessage(null), 5000);
+      setTimeout(() => setUploadMessage(null), 5002);
     } catch (err) {
       console.error('Error uploading acknowledgement:', err);
       setUploadMessage({ 
         type: 'error', 
         text: err.message || 'Failed to upload file. Please try again.' 
       });
-      setTimeout(() => setUploadMessage(null), 5000);
+      setTimeout(() => setUploadMessage(null), 5002);
     } finally {
       setUploading(false);
       // Reset file input
@@ -343,7 +343,7 @@ const PMDetail = () => {
       await fetchPMDetail();
       
       // Clear message after 5 seconds
-      setTimeout(() => setSignatureMessage(null), 5000);
+      setTimeout(() => setSignatureMessage(null), 5002);
     } catch (err) {
       console.error('Error saving signature:', err);
       throw err; // Re-throw to be handled by modal

@@ -9,11 +9,16 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
-const envCandidates = [
-  path.join(__dirname, '.env.local'),
-  path.join(__dirname, `.env.${process.env.NODE_ENV || 'development'}`),
-  path.join(__dirname, '.env')
-];
+const envCandidates = process.env.NODE_ENV === 'production'
+  ? [
+      path.join(__dirname, '.env.production'),
+      path.join(__dirname, '.env')
+    ]
+  : [
+      path.join(__dirname, '.env.local'),
+      path.join(__dirname, `.env.${process.env.NODE_ENV || 'development'}`),
+      path.join(__dirname, '.env')
+    ];
 
 const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
 if (envPath) {
@@ -48,12 +53,12 @@ console.log('✅ Database config loaded');
 
 console.log('🔧 Creating Express app...');
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5002;
 console.log(`📍 Port set to: ${PORT}`);
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP for React app
+  contentSecurityPolicy: false, // Force disable CSP entirely
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
@@ -83,14 +88,14 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
+      'http://localhost:3002',
+      'http://127.0.0.1:3002',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
     // Allow any origin from local network in development
     if (process.env.NODE_ENV !== 'production' && origin) {
-      const isLocalhost = /^http:\/\/localhost:3000$/.test(origin);
+      const isLocalhost = /^http:\/\/localhost:3002$/.test(origin);
       if (isLocalhost) {
         return callback(null, true);
       }
@@ -198,7 +203,7 @@ if (process.env.NODE_ENV === 'production') {
     res.json({
       success: true,
       message: 'Inventra API Server - Development Mode',
-      note: 'Frontend should be running on http://localhost:3000',
+      note: 'Frontend should be running on http://localhost:3002',
       apiEndpoint: '/api/v1'
     });
   });

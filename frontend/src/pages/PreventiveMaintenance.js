@@ -1628,7 +1628,7 @@ const PreventiveMaintenance = () => {
       setShowDeleteSuccessToast(true);
       setTimeout(() => {
         setShowDeleteSuccessToast(false);
-      }, 5000);
+      }, 5002);
       
       // Exit delete mode and refresh
       setDeleteMode(false);

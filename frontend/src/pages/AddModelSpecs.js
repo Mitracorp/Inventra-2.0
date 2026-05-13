@@ -4,7 +4,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, Save, AlertCircle, CheckCircle, Cpu, Edit2 } from 'lucide-react';
 import toast from '../utils/toast';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = process.env.REACT_APP_API_URL || '/api/v1';
 
 const AddModelSpecs = () => {
   usePageTitle('Add Model Specifications');

@@ -199,7 +199,7 @@ PM_CHECKLIST (Checklist_ID, Checklist_Name) ──┘
    DB_PASSWORD=Mitracorp!23Intern
    DB_NAME=ivmscom_Inventra2
    JWT_SECRET=your_secret_key
-   PORT=5000
+   PORT=5002
    ```
 
 4. **Setup Database Schema**
@@ -212,7 +212,7 @@ PM_CHECKLIST (Checklist_ID, Checklist_Name) ──┘
    ```bash
    # In backend folder
    npm start
-   # Server runs on http://localhost:5000
+   # Server runs on http://localhost:5002
    ```
 
 6. **Install Frontend Dependencies**
@@ -224,11 +224,11 @@ PM_CHECKLIST (Checklist_ID, Checklist_Name) ──┘
 7. **Start Frontend Development Server**
    ```bash
    npm start
-   # Frontend runs on http://localhost:3000
+   # Frontend runs on `http://localhost:3002`
    ```
 
 8. **Access the Application**
-   - Open browser to `http://localhost:3000`
+   - Open browser to `http://localhost:3002`
    - Login with registered credentials
 
 ### Build for Production
@@ -402,8 +402,8 @@ Developer B:
 ## 🚀 Deployment
 
 ### Development Environment
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:5000`
+- Frontend: `http://localhost:3002`
+- Backend: `http://localhost:5002`
 - Database: Local MySQL or remote MySQL server
 - PDF Storage: Local file system (`backend/uploads/pm-reports/`)
 
@@ -411,7 +411,7 @@ Developer B:
 
 This repository ships with a `.cpanel.yml` file that automates backend dependency
 installation each time cPanel pulls a new commit.  Follow the one-time setup
-below and then every subsequent push to the `staging` branch will deploy cleanly.
+below and then every subsequent push to the `main` branch will deploy cleanly.
 
 #### Prerequisites
 - cPanel account with Node.js (Passenger) support
@@ -431,15 +431,15 @@ below and then every subsequent push to the `staging` branch will deploy cleanly
 **Step 2 – Connect cPanel Git Version Control**
 1. cPanel → **Git™ Version Control** → **Create** (or **Manage** if already cloned).
 2. Set **Repository Path** to the directory where the app should live, e.g.  
-   `/home/ivms2006/public_html/inventra.ivms2006.com/app`
+   `/home/ivmscom/public_html/inventra.ivms2006.com`
 3. Set **Clone URL** to `https://github.com/Mitracorp/Inventra-2.0`
-4. Set **Branch** to `staging`.
+4. Set **Branch** to `main`.
 5. Click **Create** – cPanel will clone the repo and run `.cpanel.yml` automatically.
 
 **Step 3 – Create the production `.env` file (SSH / Terminal)**
 ```bash
 # Navigate to the deployed repo root on the server
-cd /home/ivms2006/public_html/inventra.ivms2006.com/app
+cd /home/ivmscom/public_html/inventra.ivms2006.com
 
 # Copy the example template
 cp backend/.env.example backend/.env
@@ -449,6 +449,10 @@ nano backend/.env
 ```
 Fill in every `<REQUIRED>` field in `backend/.env` (DB credentials, JWT secret, etc.).
 See `backend/.env.example` for the full list of supported variables.
+
+For frontend build-time configuration (for example `REACT_APP_API_URL`), copy
+`frontend/.env.production.example` to `frontend/.env.production` on the server
+and adjust values before the first deploy.
 
 > ⚠️ **Never commit `backend/.env`** – it is listed in `.gitignore` and must stay
 > on the server only.
@@ -460,7 +464,7 @@ See `backend/.env.example` for the full list of supported variables.
    |---|---|
    | Node.js version | 18.x (or 20.x) |
    | Application mode | **Production** |
-   | Application root | `/home/ivms2006/public_html/inventra.ivms2006.com/app/backend` |
+   | Application root | `/home/ivmscom/public_html/inventra.ivms2006.com/backend` |
    | Application URL | `inventra.ivms2006.com` (or your domain) |
    | Application startup file | `server.js` |
 3. Click **Create** then **Run NPM Install** → **Start App**.
@@ -472,7 +476,7 @@ See `backend/.env.example` for the full list of supported variables.
 
 #### How `.cpanel.yml` keeps deployments clean
 
-Every time you push to `staging` and click **Deploy HEAD Commit** in cPanel:
+Every time you push to `main` and click **Deploy HEAD Commit** in cPanel:
 
 1. cPanel fetches & checks out the new commit (fast-forward).
 2. cPanel runs the tasks in `.cpanel.yml`:
@@ -481,19 +485,22 @@ Every time you push to `staging` and click **Deploy HEAD Commit** in cPanel:
      The `--no-package-lock` flag prevents npm from writing a new
      `package-lock.json`, which would otherwise leave tracked files modified
      and block the *next* deployment with "uncommitted changes exist".
+    - Runs `npm install --no-package-lock && npm run build` inside `frontend/`
+       so frontend JS/CSS updates are included on each deployment.
    - Fixes directory permissions.
+    - Touches `backend/tmp/restart.txt` to trigger Passenger restart.
 3. Passenger auto-restarts the Node.js process.
 
-> The pre-built React bundle (`frontend/build/`) is committed to the repo,
-> so no frontend build step is needed on the server.
+> The frontend build output is generated during cPanel deploy,
+> so `frontend/build/` does not need to be committed.
 
 ---
 
 #### Deploying a new version
 
 ```bash
-# On your local machine – push to staging
-git push origin staging
+# On your local machine – push to main
+git push origin main
 ```
 
 Then in cPanel → **Git™ Version Control** → your repo → **Update** →

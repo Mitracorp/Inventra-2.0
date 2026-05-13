@@ -3,11 +3,16 @@ const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 
-const envCandidates = [
-  path.join(__dirname, '../.env.local'),
-  path.join(__dirname, `../.env.${process.env.NODE_ENV || 'development'}`),
-  path.join(__dirname, '../.env')
-];
+const envCandidates = process.env.NODE_ENV === 'production'
+  ? [
+      path.join(__dirname, '../.env.production'),
+      path.join(__dirname, '../.env')
+    ]
+  : [
+      path.join(__dirname, '../.env.local'),
+      path.join(__dirname, `../.env.${process.env.NODE_ENV || 'development'}`),
+      path.join(__dirname, '../.env')
+    ];
 
 const envPath = envCandidates.find((candidate) => fs.existsSync(candidate));
 if (envPath) {

@@ -2,7 +2,7 @@
 class ApiService {
   constructor() {
     // Use Node.js backend
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+    this.baseURL = process.env.REACT_APP_API_URL || '/api/v1';
     this.token = localStorage.getItem('authToken');
   }
 

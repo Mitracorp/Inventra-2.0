@@ -315,7 +315,7 @@ const Assets = ({ onDelete }) => {
       }
       
       // Clear success message after 5 seconds
-      setTimeout(() => setSuccessMessage(''), 5000);
+      setTimeout(() => setSuccessMessage(''), 5002);
     }
   }, [location, navigate]);
 
@@ -393,7 +393,7 @@ const Assets = ({ onDelete }) => {
         await fetchAssets();
         
         // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setTimeout(() => setSuccessMessage(''), 5002);
       } else {
         throw new Error(response.error || 'Failed to delete asset');
       }
@@ -526,7 +526,7 @@ const Assets = ({ onDelete }) => {
         setSuccessMessage(
           `Deleted ${successCount}/${assetsToDelete.length} assets.${detailsMessage}`
         );
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setTimeout(() => setSuccessMessage(''), 5002);
       }
 
       if (failures.length > 0) {

@@ -82,8 +82,8 @@ function App() {
 
             // Send token to backend
             const candidateApiUrls = Array.from(new Set([
-              process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1',
-              'http://localhost:5000/api/v1'
+              process.env.REACT_APP_API_URL || '/api/v1',
+              '/api/v1'
             ]));
 
             console.log('📤 Sending idToken to backend...');

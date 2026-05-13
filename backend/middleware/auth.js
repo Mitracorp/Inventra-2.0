@@ -45,15 +45,6 @@ const authenticateToken = async (req, res, next) => {
       );
     }
 
-    // Set MySQL session variable for database triggers
-    try {
-      await db.pool.execute('SET @current_user_id = ?', [decoded.userId]);
-      console.log('Set @current_user_id to:', decoded.userId);
-    } catch (error) {
-      console.error('Error setting @current_user_id:', error);
-      // Continue even if this fails - non-critical for authentication
-    }
-
     req.user = {
       userId: decoded.userId,
       username: decoded.username,

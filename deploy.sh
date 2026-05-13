@@ -36,7 +36,7 @@ fi
 
 cd "$APP_DIR"
 
-export NODE_ENV=development
+export NODE_ENV=production
 
 log "Pulling latest code"
 git fetch origin "$BRANCH"
@@ -44,12 +44,12 @@ git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
 if [[ ! -f backend/.env ]]; then
-	if [[ -f backend/env.production ]]; then
-		log "Creating backend/.env from backend/env.production"
-		cp backend/env.production backend/.env
-	elif [[ -f env.production ]]; then
-		log "Creating backend/.env from env.production"
-		cp env.production backend/.env
+	if [[ -f backend/.env.production ]]; then
+		log "Creating backend/.env from backend/.env.production"
+		cp backend/.env.production backend/.env
+	elif [[ -f .env.production ]]; then
+		log "Creating backend/.env from .env.production"
+		cp .env.production backend/.env
 	else
 		echo "No environment template found. Create backend/.env manually." >&2
 		exit 1

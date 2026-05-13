@@ -654,12 +654,12 @@ const saveStaffSignature = async (userId, signature) => {
 
   const uploadDir = path.join(__dirname, '../uploads/signature-staff');
   if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+    await fs.promises.mkdir(uploadDir, { recursive: true });
   }
 
   const filename = `signature_staff_${userId}.png`;
   const fullPath = path.join(uploadDir, filename);
-  fs.writeFileSync(fullPath, buffer);
+  await fs.promises.writeFile(fullPath, buffer);
 
   const relativePath = `uploads/signature-staff/${filename}`;
   await User.updateSignPath(userId, relativePath);

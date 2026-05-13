@@ -14,7 +14,7 @@ const importDump = async () => {
   const dumpContent = fs.readFileSync(dumpPath, 'utf8');
 
   const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'ivms2006',
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
