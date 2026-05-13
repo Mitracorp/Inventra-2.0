@@ -14,9 +14,10 @@ need_cmd() {
 }
 
 # Configuration (override in cPanel terminal before running the script)
-APP_DIR="${APP_DIR:-$HOME/inventra}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${APP_DIR:-$SCRIPT_DIR}"
 BRANCH="${BRANCH:-main}"
-PUBLIC_DIR="${PUBLIC_DIR:-$HOME/public_html}"
+PUBLIC_DIR="${PUBLIC_DIR:-$HOME/public_html/inventra.ivms2006.com}"
 DEPLOY_FRONTEND_TO_PUBLIC_HTML="${DEPLOY_FRONTEND_TO_PUBLIC_HTML:-1}"
 RUN_MIGRATIONS="${RUN_MIGRATIONS:-0}"
 CPANEL_NODE_APP_ROOT="${CPANEL_NODE_APP_ROOT:-$APP_DIR/backend}"
