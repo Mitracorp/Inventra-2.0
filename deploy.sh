@@ -29,6 +29,14 @@ have_cmd() {
 	command -v "$1" >/dev/null 2>&1
 }
 
+ensure_clean_node_modules() {
+	local target_path="$1"
+	if [[ -L "$target_path" || ( -e "$target_path" && ! -d "$target_path" ) ]]; then
+		log "Removing non-directory node_modules path: $target_path"
+		rm -f "$target_path"
+	fi
+}
+
 log "Starting cPanel deploy"
 log "APP_DIR=$APP_DIR"
 log "BRANCH=$BRANCH"
@@ -41,6 +49,11 @@ fi
 cd "$APP_DIR"
 
 export NODE_ENV=production
+export npm_config_cache="$APP_DIR/.npm-cache"
+
+mkdir -p "$npm_config_cache"
+
+ensure_clean_node_modules "$APP_DIR/node_modules"
 
 log "Pulling latest code"
 git fetch origin "$BRANCH"
@@ -62,6 +75,7 @@ fi
 
 log "Installing backend dependencies"
 cd "$APP_DIR/backend"
+ensure_clean_node_modules "$APP_DIR/backend/node_modules"
 npm ci --omit=dev || npm install --production
 
 log "Ensuring runtime directories"
@@ -78,7 +92,10 @@ fi
 
 log "Building frontend"
 cd "$APP_DIR/frontend"
-npm ci
+npm_config_cache="$APP_DIR/.npm-cache-frontend"
+export npm_config_cache
+mkdir -p "$npm_config_cache"
+npm ci --omit=dev || npm install --production
 npm run build
 
 if [[ "$DEPLOY_FRONTEND_TO_PUBLIC_HTML" == "1" ]]; then
