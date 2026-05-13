@@ -23,7 +23,10 @@ CPANEL_NODE_APP_ROOT="${CPANEL_NODE_APP_ROOT:-$APP_DIR/backend}"
 
 need_cmd git
 need_cmd npm
-need_cmd rsync
+
+have_cmd() {
+	command -v "$1" >/dev/null 2>&1
+}
 
 log "Starting cPanel deploy"
 log "APP_DIR=$APP_DIR"
@@ -80,7 +83,12 @@ npm run build
 if [[ "$DEPLOY_FRONTEND_TO_PUBLIC_HTML" == "1" ]]; then
 	log "Syncing frontend build to PUBLIC_DIR"
 	mkdir -p "$PUBLIC_DIR"
-	rsync -av --delete "$APP_DIR/frontend/build/" "$PUBLIC_DIR/"
+	if have_cmd rsync; then
+		rsync -av --delete "$APP_DIR/frontend/build/" "$PUBLIC_DIR/"
+	else
+		log "rsync not found; using cp fallback"
+		cp -a "$APP_DIR/frontend/build/." "$PUBLIC_DIR/"
+	fi
 else
 	log "Skipping public_html sync (DEPLOY_FRONTEND_TO_PUBLIC_HTML=$DEPLOY_FRONTEND_TO_PUBLIC_HTML)"
 fi
