@@ -130,9 +130,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
 if (process.env.NODE_ENV === 'production') {
   // Serve static files from React build
   const frontendPath = path.join(__dirname, '..', 'frontend', 'build');
-  app.use(express.static(frontendPath));
-  
-  logger.info(`📁 Serving frontend from: ${frontendPath}`);
+
+  if (fs.existsSync(frontendPath)) {
+    app.use(express.static(frontendPath));
+    logger.info(`📁 Serving frontend from: ${frontendPath}`);
+  } else {
+    logger.warn(`⚠️ Frontend build directory not found at: ${frontendPath}`);
+  }
 }
 
 // API routes
@@ -190,12 +194,30 @@ app.use('/api/*', (req, res) => {
 if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => {
     const frontendPath = path.join(__dirname, '..', 'frontend', 'build', 'index.html');
-    res.sendFile(frontendPath, (err) => {
-      if (err) {
-        logger.error('Error serving index.html:', err);
-        res.status(500).send('Error loading application');
-      }
-    });
+    if (fs.existsSync(frontendPath)) {
+      res.sendFile(frontendPath, (err) => {
+        if (err) {
+          logger.error('Error serving index.html:', err);
+          res.status(200).type('html').send(`
+            <!doctype html>
+            <html>
+              <head><meta charset="utf-8"><title>Inventra</title></head>
+              <body><h1>Inventra is starting</h1><p>The frontend build is being prepared.</p></body>
+            </html>
+          `);
+        }
+      });
+      return;
+    }
+
+    logger.warn('Frontend index.html missing, returning startup placeholder page');
+    res.status(200).type('html').send(`
+      <!doctype html>
+      <html>
+        <head><meta charset="utf-8"><title>Inventra</title></head>
+        <body><h1>Inventra is starting</h1><p>The frontend build is not available yet.</p></body>
+      </html>
+    `);
   });
 } else {
   // In development, show a messag
