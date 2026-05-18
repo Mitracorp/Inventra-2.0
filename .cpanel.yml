@@ -11,10 +11,13 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Build frontend on the server so new JS/CSS changes are included every deploy.
-    # react-scripts build needs devDependencies, so do not use --production here.
-    - cd frontend && npm install --no-package-lock
-    - cd frontend && npm run build
+    # Install from the workspace root so npm can resolve the frontend/backend workspaces.
+    # Build the frontend from the root workspace scripts instead of the nested package.
+    - npm install --no-package-lock
+    - npm run frontend:build
+
+    # Reinstall backend dependencies explicitly so Passenger gets the backend package tree.
+    - cd backend && npm install --production --no-package-lock
 
     # Ensure upload and log directories are writable by the Node.js process
     - /bin/chmod -R 755 backend/uploads
