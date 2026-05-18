@@ -11,9 +11,10 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Install from the workspace root so npm can resolve the frontend/backend workspaces.
-    # Build the frontend from the root workspace scripts instead of the nested package.
-    - npm install --no-package-lock
+    # Install workspace dependencies from the lockfile without rewriting tracked files.
+    - npm ci --include=dev
+
+    # Build the frontend from the root workspace scripts.
     - npm run frontend:build
 
     # Reinstall backend dependencies explicitly so Passenger gets the backend package tree.
