@@ -11,7 +11,10 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Install backend dependencies only (skip frontend build on cPanel).
+    # Install and build the frontend in its own directory.
+    - cd frontend && npm install && npm run build
+
+    # Install backend production dependencies for Passenger.
     - cd backend && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
 
     # Ensure upload and log directories are writable by the Node.js process
