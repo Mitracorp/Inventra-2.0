@@ -11,11 +11,12 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Install and build the frontend in its own directory without workspace resolution.
-    - cd frontend && npm install --workspaces=false && npm run build
+    # Install and build the frontend explicitly via its package directory.
+    - npm install --prefix frontend --workspaces=false
+    - npm run build --prefix frontend
 
     # Install backend production dependencies for Passenger.
-    - cd backend && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+    - npm install --prefix backend --omit=dev
 
     # Ensure upload and log directories are writable by the Node.js process
     - /bin/chmod -R 755 backend/uploads
