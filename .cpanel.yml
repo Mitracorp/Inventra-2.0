@@ -11,14 +11,8 @@ deployment:
     - /bin/mkdir -p backend/uploads/signature-staff
     - /bin/mkdir -p backend/uploads/project-logo
 
-    # Install workspace dependencies from the lockfile without rewriting tracked files.
-    - npm ci --include=dev
-
-    # Build the frontend from the root workspace scripts.
-    - npm run frontend:build
-
-    # Reinstall backend dependencies explicitly so Passenger gets the backend package tree.
-    - cd backend && npm install --production --no-package-lock
+    # Install backend dependencies only (skip frontend build on cPanel).
+    - cd backend && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
 
     # Ensure upload and log directories are writable by the Node.js process
     - /bin/chmod -R 755 backend/uploads
