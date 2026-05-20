@@ -349,3 +349,21 @@ exports.getFilterOptions = async (req, res) => {
     });
   }
 };
+
+/**
+ * Undo a history log action by Log_ID
+ */
+exports.undoHistoryLog = async (req, res) => {
+  try {
+    const logId = Number(req.params.id);
+    if (!logId) return res.status(400).json({ success: false, message: 'Invalid log id' });
+
+    const performedBy = req.user?.User_ID || req.user?.userId || null;
+    const result = await HistoryLog.undoLog(logId, performedBy);
+
+    res.status(200).json({ success: true, data: result, message: 'Undo operation executed' });
+  } catch (error) {
+    console.error('Error undoing history log:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

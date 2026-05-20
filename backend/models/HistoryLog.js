@@ -123,6 +123,108 @@ class HistoryLog {
   }
 
   /**
+   * Attempt to undo a log action (INSERT => soft-delete, DELETE => restore, UPDATE => revert fields)
+   * Creates a new history log entry recording the undo action.
+   * @param {number} logId
+   * @param {number} performedBy (optional) user id performing the undo
+   */
+  static async undoLog(logId, performedBy = null) {
+    try {
+      const [rows] = await db.pool.execute('SELECT * FROM HISTORY_LOG WHERE Log_ID = ?', [logId]);
+      const log = rows[0];
+
+      if (!log) throw new Error('History log not found');
+
+      // Get changes
+      const [changes] = await db.pool.execute('SELECT Field_Name, Old_Value, New_Value FROM HISTORY_LOG_CHANGES WHERE Log_ID = ? ORDER BY History_Log_Change_ID ASC', [logId]);
+
+      const table = log.Table_Name;
+      const recordId = log.Record_ID;
+      const action = String(log.Action_Type || '').toUpperCase();
+
+      if (!table || !recordId) throw new Error('Cannot undo log without Table_Name or Record_ID');
+
+      // Build basic primary key column name guesses
+      const idColumns = ['id', 'ID', `${table}_ID`, `${table.slice(0, -1)}_ID`, 'Record_ID'];
+
+      // Try common id column names to use in WHERE clause
+      let pkColumn = null;
+      for (const col of idColumns) {
+        try {
+          const [c] = await db.pool.execute(`SELECT ${col} FROM ${table} WHERE ${col} = ? LIMIT 1`, [recordId]);
+          if (c && c.length > 0) { pkColumn = col; break; }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      // Fallback to using primary key column as 'id = recordId' if none found
+      const whereClause = pkColumn ? `${pkColumn} = ?` : `?`;
+      const whereParams = pkColumn ? [recordId] : [recordId];
+
+      if (action === 'INSERT') {
+        // Undo insert => soft-delete the created record (set deleted_at)
+        try {
+          await db.pool.execute(`UPDATE ${table} SET deleted_at = CURRENT_TIMESTAMP WHERE ${whereClause}`, whereParams);
+        } catch (err) {
+          throw new Error(`Failed to soft-delete inserted record: ${err.message}`);
+        }
+        // create undo log
+        const undoDesc = `UNDO INSERT for ${table} id=${recordId}`;
+        const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_INSERT', undoDesc]);
+        return { success: true, undoLogId: res.insertId };
+      } else if (action === 'DELETE') {
+        // Undo delete => restore soft-deleted record (set deleted_at = NULL)
+        try {
+          await db.pool.execute(`UPDATE ${table} SET deleted_at = NULL WHERE ${whereClause}`, whereParams);
+        } catch (err) {
+          throw new Error(`Failed to restore deleted record: ${err.message}`);
+        }
+        const undoDesc = `UNDO DELETE for ${table} id=${recordId}`;
+        const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_DELETE', undoDesc]);
+        return { success: true, undoLogId: res.insertId };
+      } else if (action === 'UPDATE') {
+        // Revert updated fields using Old_Value from HISTORY_LOG_CHANGES
+        if (!changes || changes.length === 0) throw new Error('No change records to revert');
+
+        const assignments = [];
+        const params = [];
+        for (const ch of changes) {
+          assignments.push(`\`${ch.Field_Name}\` = ?`);
+          params.push(ch.Old_Value);
+        }
+        params.push(...whereParams);
+
+        try {
+          await db.pool.execute(`UPDATE ${table} SET ${assignments.join(', ')} WHERE ${whereClause}`, params);
+        } catch (err) {
+          throw new Error(`Failed to revert update: ${err.message}`);
+        }
+
+        const undoDesc = `UNDO UPDATE for ${table} id=${recordId}`;
+        const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_UPDATE', undoDesc]);
+        // Also copy change rows as part of undo log
+        try {
+          const undoLogId = res.insertId;
+          const undoValues = changes.map(ch => [undoLogId, ch.Field_Name, ch.New_Value || '', ch.Old_Value || '']);
+          if (undoValues.length > 0) {
+            await db.pool.query(`INSERT INTO HISTORY_LOG_CHANGES (Log_ID, Field_Name, Old_Value, New_Value) VALUES ?`, [undoValues]);
+          }
+        } catch (err) {
+          // non-fatal
+          console.warn('Failed to write undo change rows:', err.message);
+        }
+
+        return { success: true, undoLogId: res.insertId };
+      }
+
+      throw new Error(`Unsupported Action_Type for undo: ${action}`);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
    * Get total count of history logs with filters
    * @param {Object} options - Query options (same as getHistoryLogs)
    * @returns {Promise<number>} Total count

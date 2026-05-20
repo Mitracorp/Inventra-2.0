@@ -30,4 +30,7 @@ router.get('/export', authenticateToken, historyLogController.exportAuditLogs);
 // Create history log (for internal use/testing - protected route)
 router.post('/', authenticateToken, historyLogController.createHistoryLog);
 
+// Undo a history log action
+router.post('/:id/undo', authenticateToken, historyLogController.undoHistoryLog);
+
 module.exports = router;
