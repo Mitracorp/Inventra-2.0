@@ -27,8 +27,8 @@ deployment:
     - npm install --prefix frontend --workspaces=false
     - npm run build --prefix frontend
 
-    # Optional: if PUBLIC_DIR is provided by cPanel, sync built frontend there and fix permissions
-    - if [ -n "${PUBLIC_DIR:-}" ]; then /bin/mkdir -p "$PUBLIC_DIR"; if command -v rsync >/dev/null 2>&1; then rsync -av --delete frontend/build/ "$PUBLIC_DIR/"; else /bin/cp -a frontend/build/. "$PUBLIC_DIR/"; fi; /bin/chmod -R 755 "$PUBLIC_DIR"; ls -la "$PUBLIC_DIR" || true; fi
+    # Sync built frontend to PUBLIC_DIR (default to provided path) and fix permissions
+    - PUBLIC_DIR="${PUBLIC_DIR:-/home/ivmscom/public_html/inventra.ivms2006.com/main}"; /bin/mkdir -p "$PUBLIC_DIR"; if command -v rsync >/dev/null 2>&1; then rsync -av --delete frontend/build/ "$PUBLIC_DIR/"; else /bin/cp -a frontend/build/. "$PUBLIC_DIR/"; fi; /bin/chmod -R 755 "$PUBLIC_DIR"; ls -la "$PUBLIC_DIR" || true
 
     # Install backend production dependencies for Passenger.
     - npm install --prefix backend --omit=dev || true
