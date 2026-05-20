@@ -6,7 +6,7 @@ const pool = mysql.createPool({
   port: 3306,
   user: 'ivmscom_intern',
   password: 'N7cJ[0q6DkVE',
-  database: 'ivmscom_Inventra2',
+  database: 'ivmscom_Inventra',
   multipleStatements: true
 });
 

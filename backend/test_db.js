@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
             port: 3306,
             user: 'ivmscom_intern',
             password: 'Mitracorp!23Intern',
-            database: 'ivmscom_Inventra2'
+            database: 'ivmscom_Inventra'
         });
         console.log('localhost ok');
         await c.end();
@@ -20,7 +20,7 @@ const mysql = require('mysql2/promise');
             port: 3306,
             user: 'ivmscom_intern',
             password: 'Mitracorp!23Intern',
-            database: 'ivmscom_Inventra2',
+            database: 'ivmscom_Inventra',
             connectTimeout: 10000
         });
         console.log('remote ok');

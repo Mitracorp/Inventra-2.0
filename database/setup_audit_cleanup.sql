@@ -6,7 +6,7 @@
 -- database performance and storage
 -- =====================================================
 
-USE ivmscom_Inventra2;
+USE ivmscom_Inventra;
 
 -- Enable MySQL Event Scheduler (required for events to run)
 SET GLOBAL event_scheduler = ON;

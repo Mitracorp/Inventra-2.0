@@ -131,7 +131,7 @@ const getAllAssets = async (req, res, next) => {
       success: false,
       error: 'Failed to fetch assets from database',
       message: error.message,
-      details: 'Please check database connection and ensure the server is connected to: ivmscom_Inventra2'
+      details: 'Please check database connection and ensure the server is connected to: ivmscom_Inventra'
     });
   }
 };

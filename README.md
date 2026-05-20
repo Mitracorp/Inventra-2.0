@@ -197,7 +197,7 @@ PM_CHECKLIST (Checklist_ID, Checklist_Name) ──┘
    DB_HOST=your_mysql_host
    DB_USER=your_mysql_user
    DB_PASSWORD=Mitracorp!23Intern
-   DB_NAME=ivmscom_Inventra2
+   DB_NAME=ivmscom_Inventra
    JWT_SECRET=your_secret_key
    PORT=5002
    ```
@@ -205,7 +205,7 @@ PM_CHECKLIST (Checklist_ID, Checklist_Name) ──┘
 4. **Setup Database Schema**
    ```bash
    # Import database schema from config/setup.sql
-   mysql -u your_user -p ivmscom_Inventra2 < config/setup.sql
+   mysql -u your_user -p ivmscom_Inventra < config/setup.sql
    ```
 
 5. **Start Backend Server**
