@@ -128,7 +128,7 @@ class HistoryLog {
    * @param {number} logId
    * @param {number} performedBy (optional) user id performing the undo
    */
-  static async undoLog(logId, performedBy = null) {
+  static async undoLog(logId, performedBy = null, options = { dryRun: false }) {
     try {
       const [rows] = await db.pool.execute('SELECT * FROM HISTORY_LOG WHERE Log_ID = ?', [logId]);
       const log = rows[0];
@@ -162,21 +162,25 @@ class HistoryLog {
       const whereClause = pkColumn ? `${pkColumn} = ?` : `?`;
       const whereParams = pkColumn ? [recordId] : [recordId];
 
+      // Build dry-run payloads (SQL + params) when requested
+      const dry = options && options.dryRun;
+
       if (action === 'INSERT') {
-        // Undo insert => soft-delete the created record (set deleted_at)
+        const sql = `UPDATE ${table} SET deleted_at = CURRENT_TIMESTAMP WHERE ${whereClause}`;
+        if (dry) return { dry: true, sql, params: whereParams, note: 'Soft-delete the inserted record' };
         try {
-          await db.pool.execute(`UPDATE ${table} SET deleted_at = CURRENT_TIMESTAMP WHERE ${whereClause}`, whereParams);
+          await db.pool.execute(sql, whereParams);
         } catch (err) {
           throw new Error(`Failed to soft-delete inserted record: ${err.message}`);
         }
-        // create undo log
         const undoDesc = `UNDO INSERT for ${table} id=${recordId}`;
         const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_INSERT', undoDesc]);
         return { success: true, undoLogId: res.insertId };
       } else if (action === 'DELETE') {
-        // Undo delete => restore soft-deleted record (set deleted_at = NULL)
+        const sql = `UPDATE ${table} SET deleted_at = NULL WHERE ${whereClause}`;
+        if (dry) return { dry: true, sql, params: whereParams, note: 'Restore the soft-deleted record' };
         try {
-          await db.pool.execute(`UPDATE ${table} SET deleted_at = NULL WHERE ${whereClause}`, whereParams);
+          await db.pool.execute(sql, whereParams);
         } catch (err) {
           throw new Error(`Failed to restore deleted record: ${err.message}`);
         }
@@ -184,7 +188,6 @@ class HistoryLog {
         const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_DELETE', undoDesc]);
         return { success: true, undoLogId: res.insertId };
       } else if (action === 'UPDATE') {
-        // Revert updated fields using Old_Value from HISTORY_LOG_CHANGES
         if (!changes || changes.length === 0) throw new Error('No change records to revert');
 
         const assignments = [];
@@ -195,15 +198,17 @@ class HistoryLog {
         }
         params.push(...whereParams);
 
+        const sql = `UPDATE ${table} SET ${assignments.join(', ')} WHERE ${whereClause}`;
+        if (dry) return { dry: true, sql, params, note: 'Revert updated fields to Old_Value' };
+
         try {
-          await db.pool.execute(`UPDATE ${table} SET ${assignments.join(', ')} WHERE ${whereClause}`, params);
+          await db.pool.execute(sql, params);
         } catch (err) {
           throw new Error(`Failed to revert update: ${err.message}`);
         }
 
         const undoDesc = `UNDO UPDATE for ${table} id=${recordId}`;
         const [res] = await db.pool.execute(`INSERT INTO HISTORY_LOG (User_ID, Table_Name, Record_ID, Action_Type, Action_Desc, Timestamp) VALUES (?, ?, ?, ?, ?, NOW())`, [performedBy, table, recordId, 'UNDO_UPDATE', undoDesc]);
-        // Also copy change rows as part of undo log
         try {
           const undoLogId = res.insertId;
           const undoValues = changes.map(ch => [undoLogId, ch.Field_Name, ch.New_Value || '', ch.Old_Value || '']);
@@ -211,7 +216,6 @@ class HistoryLog {
             await db.pool.query(`INSERT INTO HISTORY_LOG_CHANGES (Log_ID, Field_Name, Old_Value, New_Value) VALUES ?`, [undoValues]);
           }
         } catch (err) {
-          // non-fatal
           console.warn('Failed to write undo change rows:', err.message);
         }
 

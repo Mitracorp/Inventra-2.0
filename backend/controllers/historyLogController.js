@@ -359,7 +359,8 @@ exports.undoHistoryLog = async (req, res) => {
     if (!logId) return res.status(400).json({ success: false, message: 'Invalid log id' });
 
     const performedBy = req.user?.User_ID || req.user?.userId || null;
-    const result = await HistoryLog.undoLog(logId, performedBy);
+    const dry = req.query.dry === 'true' || req.query.dry === '1';
+    const result = await HistoryLog.undoLog(logId, performedBy, { dryRun: dry });
 
     res.status(200).json({ success: true, data: result, message: 'Undo operation executed' });
   } catch (error) {
