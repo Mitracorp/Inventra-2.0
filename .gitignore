@@ -1,7 +1,6 @@
 ## Ignore technician signature images but keep the folder
 backend/uploads/signature-staff/**
 !backend/uploads/signature-staff/.gitkeep
-node_modules
 
 # Environment variables (real secrets – never commit these)
 .env.production
