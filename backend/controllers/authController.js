@@ -120,7 +120,24 @@ const login = async (req, res, next) => {
     );
   } catch (error) {
     logger.error('Error in login:', error);
-    next(error);
+
+    // Return a predictable JSON error for login failures so the frontend
+    // can surface the real cause instead of a generic 500 response.
+    if (error.code === 'ER_ACCESS_DENIED_ERROR' || error.code === 'ECONNREFUSED') {
+      return res.status(500).json(
+        formatResponse(false, null, 'Database connection failed during login')
+      );
+    }
+
+    if (error.code === 'ER_BAD_FIELD_ERROR') {
+      return res.status(500).json(
+        formatResponse(false, null, 'Login query is using an invalid database field')
+      );
+    }
+
+    return res.status(500).json(
+      formatResponse(false, null, error.message || 'Login failed')
+    );
   }
 };
 
