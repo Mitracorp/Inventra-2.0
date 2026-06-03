@@ -6,3 +6,6 @@ frontend/.env
 frontend/.env.production
 frontend/.env.development
 frontend/node_modules
+node_modules
+node_modules.zip
+frontend/build
