@@ -14,7 +14,7 @@ const importDump = async () => {
   const dumpContent = fs.readFileSync(dumpPath, 'utf8');
 
   const connection = await mysql.createConnection({
-    host: process.env.DB_HOST || 'ivms2006',
+    host: process.env.DB_HOST || 'ivms2006.com',
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
@@ -25,7 +25,7 @@ const importDump = async () => {
     console.log('🔌 Connecting to database...');
     
     // Create database if it doesn't exist
-    const dbName = process.env.DB_NAME || 'inventra_db';
+    const dbName = process.env.DB_NAME || 'ivmscom_Inventra';
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
     console.log(`✅ Database \`${dbName}\` ready`);
 

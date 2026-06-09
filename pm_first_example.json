@@ -1,0 +1,102 @@
+﻿{
+    "PM_ID":  3101,
+    "Asset_ID":  1065,
+    "PM_Date":  "2026-04-27T16:00:00.000Z",
+    "Status":  "Completed",
+    "file_path":  "uploads/pm-reports/PM_Report_ILIM_X8A94X00012_2.pdf",
+    "file_path_acknowledgement":  null,
+    "signature_path":  "uploads/signature/signature_3101.png",
+    "signed_at":  "2026-04-28T06:05:42.113Z",
+    "Remarks":  null,
+    "Asset_Tag_ID":  "ILIM-IKJPK-002",
+    "Item_Name":  "Projector",
+    "Asset_Serial_Number":  "X8A94X00012",
+    "Customer_ID":  20,
+    "Customer_Name":  "ILIM",
+    "Customer_Ref_Number":  "M24092",
+    "Branch":  "Jelebu",
+    "Category":  "Projector",
+    "PM_Status":  "Completed",
+    "checklist_results":  [
+                              {
+                                  "PM_Result_ID":  38970,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  44,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Power On/Off \u0026 Physical Check"
+                              },
+                              {
+                                  "PM_Result_ID":  38971,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  45,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Button Functioning"
+                              },
+                              {
+                                  "PM_Result_ID":  38972,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  46,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Display and Zoom Test"
+                              },
+                              {
+                                  "PM_Result_ID":  38973,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  47,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Bulb Test"
+                              },
+                              {
+                                  "PM_Result_ID":  38974,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  48,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Power Cable"
+                              },
+                              {
+                                  "PM_Result_ID":  38975,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  49,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "USB Cable"
+                              },
+                              {
+                                  "PM_Result_ID":  38976,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  50,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "No Loose Parts"
+                              },
+                              {
+                                  "PM_Result_ID":  38977,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  51,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Dust Remove"
+                              },
+                              {
+                                  "PM_Result_ID":  38978,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  52,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Cleaning / removing dust and stains from body parts of asset"
+                              },
+                              {
+                                  "PM_Result_ID":  38979,
+                                  "PM_ID":  3101,
+                                  "Checklist_ID":  53,
+                                  "Is_OK_bool":  1,
+                                  "Remarks":  null,
+                                  "Check_item_Long":  "Update PM date on the sticker"
+                              }
+                          ]
+}

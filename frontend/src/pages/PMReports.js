@@ -80,7 +80,23 @@ const PMReports = () => {
         const customersData = await customersResponse.json();
         const projectsData = projectsResponse?.data || [];
 
-        setCustomers(Array.isArray(customersData) ? customersData : []);
+        // Deduplicate customers by name so the select shows one entry per customer group
+        const uniqueCustomers = Array.isArray(customersData)
+          ? (() => {
+              const m = new Map();
+              customersData.forEach((customer) => {
+                if (!m.has(customer.Customer_Name)) {
+                  m.set(customer.Customer_Name, {
+                    Customer_ID: customer.Customer_ID,
+                    Customer_Name: customer.Customer_Name,
+                    Customer_Ref_Number: customer.Customer_Ref_Number
+                  });
+                }
+              });
+              return Array.from(m.values());
+            })()
+          : [];
+        setCustomers(uniqueCustomers);
         setContracts(Array.isArray(projectsData) ? projectsData : []);
         // fetch categories for report filter
         try {
@@ -333,8 +349,8 @@ const PMReports = () => {
             >
               <option value="">All Categories</option>
               {categories.map((c) => (
-                <option key={c.Category_ID || c.Category} value={c.Category || c.Category}>
-                  {c.Category || c.Category}
+                <option key={typeof c === 'string' ? c : (c.Category_ID || c.Category)} value={typeof c === 'string' ? c : (c.Category || '')}>
+                  {typeof c === 'string' ? c : (c.Category || '')}
                 </option>
               ))}
             </select>

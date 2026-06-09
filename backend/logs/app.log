@@ -1,0 +1,460 @@
+[2026-06-08T02:02:11.332Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:02:11.933Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:02:12.063Z] [ERROR] Failed to start server: Error: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at startServer (C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js:250:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\MitracorpInternship\\Inventra-2.0\\backend\\server.js'
+  ]
+}
+[2026-06-08T02:02:12.063Z] [WARN] Database initialization failed, but server will continue: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+[2026-06-08T02:08:04.806Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:08:05.171Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:08:05.290Z] [ERROR] Failed to start server: Error: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at startServer (C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js:250:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\MitracorpInternship\\Inventra-2.0\\backend\\server.js'
+  ]
+}
+[2026-06-08T02:10:40.470Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:10:40.608Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:10:40.711Z] [ERROR] Failed to start server: Error: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at startServer (C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js:250:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\MitracorpInternship\\Inventra-2.0\\backend\\server.js'
+  ]
+}
+[2026-06-08T02:10:40.712Z] [WARN] Database initialization failed, but server will continue: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+[2026-06-08T02:11:59.494Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:11:59.778Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:11:59.904Z] [ERROR] Failed to start server: Error: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at startServer (C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js:250:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\MitracorpInternship\\Inventra-2.0\\backend\\server.js'
+  ]
+}
+[2026-06-08T02:13:30.270Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:13:30.388Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:13:30.521Z] [ERROR] Failed to start server: Error: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1066:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1071:22)
+    at Module._load (node:internal/modules/cjs/loader:1242:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1556:12)
+    at require (node:internal/modules/helpers:152:16)
+    at startServer (C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js:250:5)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\MitracorpInternship\\Inventra-2.0\\backend\\server.js'
+  ]
+}
+[2026-06-08T02:13:30.521Z] [WARN] Database initialization failed, but server will continue: Cannot find module './schedulers/auditLogCleanup'
+Require stack:
+- C:\Users\MitracorpInternship\Inventra-2.0\backend\server.js
+[2026-06-08T02:19:31.115Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:19:31.285Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:19:31.378Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:22:15.676Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:22:15.832Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:22:16.010Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:22:16.019Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:22:16.020Z] [INFO] 📍 Environment: production
+[2026-06-08T02:22:16.020Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:22:16.020Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:28:36.620Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:28:36.908Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:28:37.221Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:29:47.453Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:29:47.779Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:29:47.905Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:29:47.912Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:29:47.912Z] [INFO] 📍 Environment: production
+[2026-06-08T02:29:47.912Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:29:47.913Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:31:07.934Z] [ERROR] Database query error: {
+  query: 'INSERT INTO USER (username, User_Email, User_Password, First_Name, Last_Name, User_Department, User_...',
+  error: 'Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)'
+}
+[2026-06-08T02:31:07.935Z] [ERROR] Error in register: Error: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+    at PromisePool.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\pool.js:54:22)
+    at executeQuery (C:\Users\MitracorpInternship\Inventra-2.0\backend\config\database.js:69:34)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:26:24)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20) {
+  code: 'ER_NO_REFERENCED_ROW_2',
+  errno: 1452,
+  sql: 'INSERT INTO USER (username, User_Email, User_Password, First_Name, Last_Name, User_Department, User_Role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  sqlState: '23000',
+  sqlMessage: 'Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)'
+}
+[2026-06-08T02:31:07.937Z] [ERROR] Unhandled error: Error: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+    at PromisePool.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\pool.js:54:22)
+    at executeQuery (C:\Users\MitracorpInternship\Inventra-2.0\backend\config\database.js:69:34)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:26:24)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20)
+[2026-06-08T02:32:01.518Z] [INFO] User logged in: seed
+[2026-06-08T02:32:41.810Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T02:34:30.182Z] [INFO] User logged in: seed
+[2026-06-08T02:45:57.146Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:45:57.417Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:45:57.513Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:45:57.521Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:45:57.522Z] [INFO] 📍 Environment: production
+[2026-06-08T02:45:57.522Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:45:57.523Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:52:36.812Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:52:37.815Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:52:38.141Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:52:38.147Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:52:38.148Z] [INFO] 📍 Environment: production
+[2026-06-08T02:52:38.148Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:52:38.148Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:53:16.314Z] [ERROR] Error in register: Error: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+    at PromisePoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:30:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20) {
+  code: 'ER_NO_REFERENCED_ROW_2',
+  errno: 1452,
+  sql: 'INSERT INTO USER (username, User_Email, User_Password, First_Name, Last_Name, User_Department, User_Role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  sqlState: '23000',
+  sqlMessage: 'Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)'
+}
+[2026-06-08T02:53:16.318Z] [ERROR] Unhandled error: Error: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+    at PromisePoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:47:22)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:30:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20)
+[2026-06-08T02:54:55.062Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:54:55.225Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:54:55.310Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:54:55.317Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:54:55.318Z] [INFO] 📍 Environment: production
+[2026-06-08T02:54:55.318Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:54:55.318Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:55:22.700Z] [INFO] User registered: realuser_6983@example.com
+[2026-06-08T02:55:22.993Z] [INFO] User logged in: realuser_6983
+[2026-06-08T02:55:23.061Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T02:58:06.359Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:58:06.504Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:58:06.609Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:58:34.707Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T02:58:34.884Z] [INFO] ✅ Database connected successfully
+[2026-06-08T02:58:34.981Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T02:58:34.987Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T02:58:34.987Z] [INFO] 📍 Environment: production
+[2026-06-08T02:58:34.988Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T02:58:34.988Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T02:58:58.008Z] [INFO] User logged in: realuser_6983
+[2026-06-08T02:58:58.136Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:01:14.450Z] [INFO] User logged in: seed
+[2026-06-08T03:01:14.598Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:01:22.941Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:04:31.069Z] [INFO] User logged in: seed
+[2026-06-08T03:04:31.205Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:05:26.275Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T03:05:26.500Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:05:26.586Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:05:26.594Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:05:26.594Z] [INFO] 📍 Environment: production
+[2026-06-08T03:05:26.594Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T03:05:26.594Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:05:57.690Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:05:57.807Z] [WARN] PM route query failed: Unknown column 'deleted_at' in 'where clause'
+[2026-06-08T03:05:57.891Z] [WARN] Options route query failed: Unknown column 'deleted_at' in 'where clause'
+[2026-06-08T03:07:49.083Z] [ERROR] Database query error: {
+  query: 'SELECT COUNT(*) AS cnt FROM CUSTOMER WHERE deleted_at IS NULL...',
+  error: "Unknown column 'deleted_at' in 'where clause'"
+}
+[2026-06-08T03:11:20.920Z] [INFO] 📁 Serving frontend from: C:\Users\MitracorpInternship\Inventra-2.0\frontend\build
+[2026-06-08T03:11:21.255Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:11:21.436Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:11:21.443Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:11:21.443Z] [INFO] 📍 Environment: production
+[2026-06-08T03:11:21.444Z] [INFO] 🌐 CORS enabled for: http://inventra.ivms2006.com
+[2026-06-08T03:11:21.444Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:11:56.969Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:21:22.109Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:21:22.195Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:21:22.200Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:21:22.200Z] [INFO] 📍 Environment: development
+[2026-06-08T03:21:22.200Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T03:21:22.200Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:24:06.144Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:24:06.284Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:24:46.562Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:24:46.684Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:31:00.646Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:31:00.777Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:31:00.783Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:31:00.783Z] [INFO] 📍 Environment: development
+[2026-06-08T03:31:00.784Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T03:31:00.784Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:35:07.788Z] [INFO] User logged in: seed 
+[2026-06-08T03:35:08.073Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:35:13.769Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:37:10.139Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:37:10.242Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:37:10.248Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:37:10.249Z] [INFO] 📍 Environment: development
+[2026-06-08T03:37:10.249Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T03:37:10.249Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:41:44.342Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:41:44.447Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T03:41:48.506Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:42:31.281Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:42:31.333Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T03:45:22.699Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:45:22.891Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:45:22.895Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:45:22.896Z] [INFO] 📍 Environment: development
+[2026-06-08T03:45:22.896Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T03:45:22.896Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:45:48.723Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:46:26.860Z] [INFO] User logged in: realuser_6983
+[2026-06-08T03:48:08.723Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T03:48:10.379Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T03:48:22.174Z] [INFO] ✅ Database connected successfully
+[2026-06-08T03:48:22.286Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T03:48:22.293Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T03:48:22.293Z] [INFO] 📍 Environment: development
+[2026-06-08T03:48:22.293Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T03:48:22.293Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T03:48:39.232Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T04:04:54.744Z] [INFO] User logged in: seed
+[2026-06-08T04:04:54.845Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T04:04:56.373Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T04:04:57.387Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:05:00.931Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T04:05:01.831Z] [WARN] Assets route failed, returning empty list to avoid 404: Unknown column 'a.Serial_Number' in 'field list'
+[2026-06-08T04:05:05.039Z] [WARN] Projects route query failed: Unknown column 'Company_Full_Name' in 'field list'
+[2026-06-08T04:07:48.958Z] [INFO] ✅ Database connected successfully
+[2026-06-08T04:07:49.603Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T04:07:49.612Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T04:07:49.613Z] [INFO] 📍 Environment: development
+[2026-06-08T04:07:49.613Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T04:07:49.613Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T04:08:08.561Z] [INFO] User logged in: realuser_6983
+[2026-06-08T04:08:23.925Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:14:49.982Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:15:50.255Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:29:53.540Z] [INFO] ✅ Database connected successfully
+[2026-06-08T04:29:53.664Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T04:29:53.674Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T04:29:53.674Z] [INFO] 📍 Environment: development
+[2026-06-08T04:29:53.675Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T04:29:53.675Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T04:32:19.812Z] [INFO] User logged in: seed
+[2026-06-08T04:32:46.978Z] [INFO] User logged in: seed
+[2026-06-08T04:35:02.148Z] [INFO] ✅ Database connected successfully
+[2026-06-08T04:35:02.234Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T04:35:02.246Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T04:35:02.247Z] [INFO] 📍 Environment: development
+[2026-06-08T04:35:02.247Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T04:35:02.248Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T04:36:15.998Z] [ERROR] Error in register: TypeError: Bind parameters must not contain undefined. To pass SQL NULL specify JS null
+    at C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\base\connection.js:660:17
+    at Array.forEach (<anonymous>)
+    at PoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\base\connection.js:652:22)
+    at C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:56:11
+    at new Promise (<anonymous>)
+    at PromisePoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:53:12)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:59:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20)
+[2026-06-08T04:36:16.028Z] [ERROR] Unhandled error: TypeError: Bind parameters must not contain undefined. To pass SQL NULL specify JS null
+    at C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\base\connection.js:660:17
+    at Array.forEach (<anonymous>)
+    at PoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\base\connection.js:652:22)
+    at C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:56:11
+    at new Promise (<anonymous>)
+    at PromisePoolConnection.execute (C:\Users\MitracorpInternship\Inventra-2.0\node_modules\mysql2\lib\promise\connection.js:53:12)
+    at Object.create (C:\Users\MitracorpInternship\Inventra-2.0\backend\models\User.js:59:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async register (C:\Users\MitracorpInternship\Inventra-2.0\backend\controllers\authController.js:56:20)
+[2026-06-08T04:36:16.110Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T04:36:16.129Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T04:36:16.151Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T04:36:16.177Z] [ERROR] Database query error: {
+  query: 'SELECT User_ID, username, User_Email, User_Role FROM USER WHERE User_ID = ?...',
+  error: 'Bind parameters must not contain undefined. To pass SQL NULL specify JS null'
+}
+[2026-06-08T04:36:36.525Z] [INFO] User registered: smoketest_1780893395@example.com
+[2026-06-08T04:36:49.249Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T04:37:15.771Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T04:37:16.464Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:37:45.662Z] [INFO] User logged in: seed
+[2026-06-08T04:37:51.975Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T04:38:05.653Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-08T05:01:45.264Z] [INFO] ✅ Database connected successfully
+[2026-06-08T05:01:45.342Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T05:01:45.346Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T05:01:45.346Z] [INFO] 📍 Environment: development
+[2026-06-08T05:01:45.346Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T05:01:45.347Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T05:09:58.481Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T05:15:18.400Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T05:15:51.002Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T05:16:45.243Z] [INFO] ✅ Database connected successfully
+[2026-06-08T05:16:45.362Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T05:16:45.366Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T05:16:45.366Z] [INFO] 📍 Environment: development
+[2026-06-08T05:16:45.366Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T05:16:45.366Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T05:17:09.022Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T05:41:23.777Z] [INFO] User logged in: seed
+[2026-06-08T05:43:44.093Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T05:45:21.723Z] [INFO] ✅ Database connected successfully
+[2026-06-08T05:45:21.812Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T05:45:21.816Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T05:45:21.816Z] [INFO] 📍 Environment: development
+[2026-06-08T05:45:21.816Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T05:45:21.816Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T05:45:39.918Z] [INFO] User logged in: smoketest_1780893395
+[2026-06-08T06:24:50.079Z] [INFO] User registered: smoketest@example.com
+[2026-06-08T06:26:24.436Z] [INFO] User logged in: smoketest
+[2026-06-08T06:30:31.916Z] [INFO] User logged in: smoketest
+[2026-06-08T06:37:11.150Z] [INFO] ✅ Database connected successfully
+[2026-06-08T06:37:11.249Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T06:37:11.252Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T06:37:11.253Z] [INFO] 📍 Environment: development
+[2026-06-08T06:37:11.253Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T06:37:11.253Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T06:38:01.762Z] [INFO] User logged in: smoketest
+[2026-06-08T06:38:09.961Z] [INFO] User logged in: smoketest
+[2026-06-08T06:50:44.775Z] [INFO] ✅ Database connected successfully
+[2026-06-08T06:50:44.865Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T06:50:44.868Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T06:50:44.868Z] [INFO] 📍 Environment: development
+[2026-06-08T06:50:44.868Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T06:50:44.868Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T06:53:05.304Z] [INFO] User logged in: smoketest
+[2026-06-08T07:10:11.003Z] [INFO] ✅ Database connected successfully
+[2026-06-08T07:10:11.147Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T07:12:00.989Z] [INFO] ✅ Database connected successfully
+[2026-06-08T07:12:01.066Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T07:12:01.069Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T07:12:01.069Z] [INFO] 📍 Environment: development
+[2026-06-08T07:12:01.069Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T07:12:01.069Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T07:15:35.284Z] [INFO] User registered: smoketest30194@example.com
+[2026-06-08T07:17:08.828Z] [INFO] User registered: smoketest71580@example.com
+[2026-06-08T07:27:21.353Z] [INFO] ✅ Database connected successfully
+[2026-06-08T07:27:21.461Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-08T07:27:21.463Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-08T07:27:21.463Z] [INFO] 📍 Environment: development
+[2026-06-08T07:27:21.464Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-08T07:27:21.464Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-08T07:29:54.311Z] [INFO] User registered: smoketest62838@example.com
+[2026-06-08T07:36:54.198Z] [INFO] User registered: smoketest85545@example.com
+[2026-06-08T07:51:28.990Z] [INFO] User logged in: smoketest71580
+[2026-06-08T08:27:21.560Z] [ERROR] Database query error: {
+  query: 'DELETE FROM audit_log WHERE created_at < DATE_SUB(NOW(), INTERVAL 365 DAY)...',
+  error: "Table 'ivmscom_Inventra.audit_log' doesn't exist"
+}
+[2026-06-08T08:27:21.561Z] [WARN] Audit log cleanup failed (likely missing table): Table 'ivmscom_Inventra.audit_log' doesn't exist
+[2026-06-08T08:47:20.690Z] [INFO] User registered: checkuser91175@example.com
+[2026-06-08T08:59:35.556Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:00:12.274Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:04:29.069Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:18:17.398Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:19:02.594Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:22:39.371Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:27:21.497Z] [ERROR] Database query error: {
+  query: 'DELETE FROM audit_log WHERE created_at < DATE_SUB(NOW(), INTERVAL 365 DAY)...',
+  error: "Table 'ivmscom_Inventra.audit_log' doesn't exist"
+}
+[2026-06-08T09:27:21.498Z] [WARN] Audit log cleanup failed (likely missing table): Table 'ivmscom_Inventra.audit_log' doesn't exist
+[2026-06-08T09:27:35.246Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:28:23.060Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:29:48.916Z] [INFO] User logged in: checkuser91175
+[2026-06-08T09:33:09.613Z] [INFO] User logged in: checkuser91175
+[2026-06-09T01:29:39.846Z] [INFO] ✅ Database connected successfully
+[2026-06-09T01:29:40.170Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T01:29:40.178Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T01:29:40.178Z] [INFO] 📍 Environment: development
+[2026-06-09T01:29:40.178Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T01:29:40.178Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T01:32:14.987Z] [INFO] User logged in: seed
+[2026-06-09T01:34:36.478Z] [INFO] ✅ Database connected successfully
+[2026-06-09T01:34:36.617Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T01:34:36.620Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T01:34:36.620Z] [INFO] 📍 Environment: development
+[2026-06-09T01:34:36.620Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T01:34:36.620Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T01:35:03.309Z] [INFO] User logged in: seed
+[2026-06-09T01:42:29.805Z] [INFO] User registered: test_bot_user@example.com
+[2026-06-09T01:45:32.279Z] [INFO] ✅ Database connected successfully
+[2026-06-09T01:45:32.706Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T01:45:32.710Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T01:45:32.710Z] [INFO] 📍 Environment: development
+[2026-06-09T01:45:32.710Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T01:45:32.710Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T01:47:38.327Z] [INFO] User logged in: seed
+[2026-06-09T01:51:42.165Z] [INFO] ✅ Database connected successfully
+[2026-06-09T01:51:42.304Z] [INFO] Audit log cleanup scheduler starting (stub)

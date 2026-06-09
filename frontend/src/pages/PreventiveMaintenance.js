@@ -314,7 +314,7 @@ const PreventiveMaintenance = () => {
     localStorage.setItem('inventraPMSortMode', listSortMode);
   }, [listSortMode]);
 
-  const normalizePMStatus = (status) => String(status || '').trim().toLowerCase();
+  const normalizePMStatus = (status) => String(status || '').trim().toLowerCase().replace(/\.$/, '');
 
   const isDownloadablePMStatus = (status) => {
     const normalized = normalizePMStatus(status);
@@ -582,7 +582,14 @@ const PreventiveMaintenance = () => {
       });
       if (!response.ok) throw new Error('Failed to fetch customers');
       const data = await response.json();
-      setCustomers(data);
+      // Deduplicate customers by Customer_Name to show only one entry per customer
+      const map = new Map();
+      (data || []).forEach((c) => {
+        if (!map.has(c.Customer_Name)) {
+          map.set(c.Customer_Name, c);
+        }
+      });
+      setCustomers(Array.from(map.values()));
       
       // Fetch all PM records to calculate counts
       try {
@@ -602,7 +609,7 @@ const PreventiveMaintenance = () => {
           const counts = {};
           data.forEach(customer => {
             const count = allRecords.filter(record => 
-              record.Customer_Ref_Number === customer.Customer_ID && record.PM_ID != null
+              Number(record.Customer_ID) === Number(customer.Customer_ID) && record.PM_ID != null
             ).length;
             console.log(`Customer ${customer.Customer_Name} (Ref: ${customer.Customer_ID}): ${count} PM records`);
             counts[customer.Customer_ID] = count;
@@ -657,7 +664,7 @@ const PreventiveMaintenance = () => {
       const counts = {};
       data.forEach(branch => {
         const count = pmRecordsForCounting.filter(record => 
-          record.Customer_Ref_Number == customerId && record.Branch === branch && record.PM_ID != null
+          Number(record.Customer_ID) === Number(customerId) && record.Branch === branch && record.PM_ID != null
         ).length;
         console.log(`Branch ${branch}: ${count} PM records (Customer Ref: ${customerId})`);
         counts[branch] = count;
@@ -872,7 +879,8 @@ const PreventiveMaintenance = () => {
   };
 
   const isUnsignedPMStatus = (status) => {
-    return (status || '').toLowerCase() !== 'completed';
+    const normalized = normalizePMStatus(status);
+    return normalized !== 'completed' && normalized !== 'marked as completed';
   };
 
   const getUnsignedPMCountForAsset = (asset) => {

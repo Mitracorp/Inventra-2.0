@@ -14,7 +14,7 @@ node scripts/diagnose_runtime.js
 If you want DB checks, set environment variables first:
 
 ```bash
-export DB_HOST=localhost
+export DB_HOST=ivms2006.com
 export DB_USER=someuser
 export DB_PASS=somepass
 export DB_NAME=ivmscom_Inventra

@@ -23,11 +23,11 @@ if (envPath) {
 
 // Database connection configuration
 const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || 'ivms2006.com',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'inventra_db',
+  database: process.env.DB_NAME || 'ivmscom_Inventra',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

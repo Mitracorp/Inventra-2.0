@@ -40,7 +40,7 @@ checkFiles.forEach((f) => {
 });
 
 // Optional: check DB connectivity if env vars set
-const DB_HOST = process.env.DB_HOST || process.env.MYSQL_HOST || process.env.DB_HOSTNAME;
+const DB_HOST = process.env.DB_HOST || process.env.MYSQL_HOST || process.env.DB_HOSTNAME || 'ivms2006.com';
 const DB_USER = process.env.DB_USER || process.env.MYSQL_USER || process.env.DB_USERNAME;
 const DB_PASS = process.env.DB_PASS || process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD;
 const DB_NAME = process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.DB_DATABASE;

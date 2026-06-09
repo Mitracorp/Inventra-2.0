@@ -1,261 +1,128 @@
-const { executeQuery } = require('../config/database');
-const { hashPassword, comparePassword, toCamelCase } = require('../utils/helpers');
+const { executeQuery, getConnection } = require('../config/database');
+const bcrypt = require('bcryptjs');
 
-class User {
-  constructor(data) {
-    this.userId = data.User_ID || data.userId;
-    this.username = data.username;
-    this.email = data.User_Email || data.email;
-    this.firstName = data.First_Name || data.firstName;
-    this.lastName = data.Last_Name || data.lastName;
-    this.department = data.User_Department || data.department;
-    this.role = data.User_Role || data.role || 'user';
-    this.signPath = data.sign_path || data.signPath || null;
-    this.createdAt = data.Created_at || data.createdAt;
-  }
+const table = 'USER';
 
-  // Create new user
-  static async create(userData) {
-    const hashedPassword = await hashPassword(userData.password);
-    
-    const query = `
-      INSERT INTO USER (
-        username, User_Email, User_Password, First_Name, Last_Name, User_Department, User_Role, Created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-    `;
+const normalizeUser = (row) => {
+  if (!row) return null;
+  return {
+    ...row,
+    userId: row.User_ID,
+    email: row.User_Email,
+    role: row.User_Role,
+    firstName: row.First_Name,
+    lastName: row.Last_Name,
+    department: row.User_Department
+  };
+};
 
-    const values = [
-      userData.username,
-      userData.email,
-      hashedPassword,
-      userData.firstName,
-      userData.lastName,
-      userData.department || '',
-      userData.role || 'user'
-    ];
+const findByEmail = async (email) => {
+  if (!email) return null;
+  const rows = await executeQuery(`SELECT * FROM ${table} WHERE User_Email = ? LIMIT 1`, [email]);
+  return normalizeUser(rows[0] || null);
+};
 
-    const result = await executeQuery(query, values);
+const findByUsername = async (username) => {
+  if (!username) return null;
+  const rows = await executeQuery(`SELECT * FROM ${table} WHERE username = ? LIMIT 1`, [username]);
+  return normalizeUser(rows[0] || null);
+};
+
+const findById = async (id) => {
+  if (!id) return null;
+  const rows = await executeQuery(`SELECT * FROM ${table} WHERE User_ID = ? LIMIT 1`, [id]);
+  return normalizeUser(rows[0] || null);
+};
+
+const create = async ({ username, email, password, firstName, lastName, department, role, auditUserId = 1 }) => {
+  const hash = await bcrypt.hash(password || Math.random().toString(36), 10);
+  const conn = await getConnection();
+  try {
+    // Ensure DB audit triggers always have a valid existing user id in this same session.
+    // Some databases do not have User_ID=1, so we must resolve a real FK-safe id.
+    let safeAuditUserId = null;
+    const [actorRows] = await conn.execute('SELECT User_ID FROM USER WHERE User_ID = ? LIMIT 1', [auditUserId || 0]);
+    if (actorRows.length > 0) {
+      safeAuditUserId = actorRows[0].User_ID;
+    } else {
+      const [fallbackRows] = await conn.execute('SELECT User_ID FROM USER ORDER BY User_ID ASC LIMIT 1');
+      if (fallbackRows.length > 0) {
+        safeAuditUserId = fallbackRows[0].User_ID;
+      }
+    }
+
+    if (!safeAuditUserId) {
+      throw new Error('Cannot create user because no valid audit user exists for HISTORY_LOG trigger');
+    }
+
+    await conn.execute('SET @current_user_id = ?', [safeAuditUserId]);
+    const [result] = await conn.execute(
+      `INSERT INTO ${table} (username, User_Email, User_Password, First_Name, Last_Name, User_Department, User_Role) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [username, email, hash, firstName || null, lastName || null, department || null, role || 'user']
+    );
     return result.insertId;
+  } finally {
+    conn.release();
   }
+};
 
-  // Find user by email
-  static async findByEmail(email) {
-    const query = 'SELECT * FROM USER WHERE User_Email = ?';
-    const result = await executeQuery(query, [email]);
-    if (result.length === 0) return null;
-    const user = result[0];
-    return {
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    };
-  }
+const verifyPasswordByUsername = async (username, password) => {
+  const user = await findByUsername(username);
+  if (!user) return null;
+  const match = await bcrypt.compare(password, user.User_Password);
+  if (!match) return null;
+  return normalizeUser(user);
+};
 
-  // Find user by username
-  static async findByUsername(username) {
-    const query = 'SELECT * FROM USER WHERE username = ?';
-    const result = await executeQuery(query, [username]);
-    if (result.length === 0) return null;
-    const user = result[0];
-    return {
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    };
-  }
+const verifyPassword = async (email, password) => {
+  const user = await findByEmail(email);
+  if (!user) return null;
+  const match = await bcrypt.compare(password, user.User_Password);
+  if (!match) return null;
+  return normalizeUser(user);
+};
 
-  // Find user by ID
-  static async findById(userId) {
-    const query = 'SELECT * FROM USER WHERE User_ID = ?';
-    const result = await executeQuery(query, [userId]);
-    if (result.length === 0) return null;
-    const user = result[0];
-    return {
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    };
-  }
+const update = async (userId, fields) => {
+  const sets = [];
+  const params = [];
+  Object.keys(fields).forEach((key) => {
+    sets.push(`${key} = ?`);
+    params.push(fields[key]);
+  });
+  if (sets.length === 0) return false;
+  params.push(userId);
+  const query = `UPDATE ${table} SET ${sets.join(', ')} WHERE User_ID = ?`;
+  const res = await executeQuery(query, params);
+  return res.affectedRows > 0;
+};
 
-  // Verify user password by email
-  static async verifyPassword(email, password) {
-    const query = 'SELECT * FROM USER WHERE User_Email = ?';
-    const result = await executeQuery(query, [email]);
-    
-    if (result.length === 0) {
-      return null;
-    }
+const deleteUser = async (userId) => {
+  const res = await executeQuery(`DELETE FROM ${table} WHERE User_ID = ?`, [userId]);
+  return res.affectedRows > 0;
+};
 
-    const user = result[0];
-    const isPasswordValid = await comparePassword(password, user.User_Password);
-    
-    if (!isPasswordValid) {
-      return null;
-    }
+const findAll = async (page = 1, limit = 10) => {
+  const offset = (page - 1) * limit;
+  const rows = await executeQuery(`SELECT * FROM ${table} LIMIT ? OFFSET ?`, [parseInt(limit), parseInt(offset)]);
+  const users = rows.map(normalizeUser);
+  const total = await executeQuery(`SELECT COUNT(*) as cnt FROM ${table}`);
+  return { users, pagination: { page, limit, total: total[0].cnt } };
+};
 
-    // Return user without password hash
-    return {
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    };
-  }
+const updateSignPath = async (userId, path) => {
+  const res = await executeQuery(`UPDATE ${table} SET sign_path = ? WHERE User_ID = ?`, [path, userId]);
+  return res.affectedRows > 0;
+};
 
-  // Verify user password by username
-  static async verifyPasswordByUsername(username, password) {
-    const query = 'SELECT * FROM USER WHERE username = ?';
-    const result = await executeQuery(query, [username]);
-    
-    if (result.length === 0) {
-      return null;
-    }
-
-    const user = result[0];
-    const isPasswordValid = await comparePassword(password, user.User_Password);
-    
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    // Return user without password hash
-    return {
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    };
-  }
-
-  // Update user
-  static async update(userId, updateData) {
-    const fields = [];
-    const values = [];
-
-    // Map camelCase to database column names
-    const fieldMapping = {
-      username: 'username',
-      firstName: 'First_Name',
-      lastName: 'Last_Name',
-      email: 'User_Email',
-      department: 'User_Department',
-      password: 'User_Password',
-      role: 'User_Role',
-      signPath: 'sign_path'
-    };
-
-    // Handle password update separately
-    if (updateData.password) {
-      const hashedPassword = await hashPassword(updateData.password);
-      fields.push('User_Password = ?');
-      values.push(hashedPassword);
-      delete updateData.password;
-    }
-
-    // Build dynamic update query
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] !== undefined && key !== 'userId' && key !== 'password') {
-        const dbField = fieldMapping[key];
-        if (dbField) {
-          fields.push(`${dbField} = ?`);
-          values.push(updateData[key]);
-        }
-      }
-    });
-
-    if (fields.length === 0) {
-      throw new Error('No valid fields to update');
-    }
-
-    values.push(userId);
-    const query = `UPDATE USER SET ${fields.join(', ')} WHERE User_ID = ?`;
-    
-    const result = await executeQuery(query, values);
-    return result.affectedRows > 0;
-  }
-
-  // Delete user
-  static async delete(userId) {
-    const query = 'DELETE FROM USER WHERE User_ID = ?';
-    const result = await executeQuery(query, [userId]);
-    return result.affectedRows > 0;
-  }
-
-  // Get all users
-  static async findAll(page = 1, limit = 10) {
-    const offset = (page - 1) * limit;
-    
-    // Get total count
-    const countQuery = 'SELECT COUNT(*) as total FROM USER';
-    const countResult = await executeQuery(countQuery);
-    const totalCount = countResult[0].total;
-
-    // Get paginated results without password hashes
-    const dataQuery = `
-      SELECT User_ID, username, User_Email, First_Name, Last_Name, User_Department, User_Role, Created_at
-      FROM USER 
-      ORDER BY Created_at DESC 
-      LIMIT ? OFFSET ?
-    `;
-
-    const rawUsers = await executeQuery(dataQuery, [limit, offset]);
-    const users = rawUsers.map(user => ({
-      userId: user.User_ID,
-      username: user.username,
-      email: user.User_Email,
-      firstName: user.First_Name,
-      lastName: user.Last_Name,
-      department: user.User_Department,
-      role: user.User_Role,
-      signPath: user.sign_path,
-      createdAt: user.Created_at
-    }));
-    
-    return {
-      users,
-      pagination: {
-        currentPage: page,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(totalCount / limit),
-        totalCount
-      }
-    };
-  }
-
-  // Update user's signature path only
-  static async updateSignPath(userId, signPath) {
-    const query = 'UPDATE USER SET sign_path = ? WHERE User_ID = ?';
-    const result = await executeQuery(query, [signPath, userId]);
-    return result.affectedRows > 0;
-  }
-}
-
-module.exports = User;
+module.exports = {
+  findByEmail,
+  findByUsername,
+  findById,
+  create,
+  verifyPasswordByUsername,
+  verifyPassword,
+  update,
+  delete: deleteUser,
+  findAll,
+  updateSignPath
+};

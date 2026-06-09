@@ -1,58 +1,29 @@
-const winston = require('winston');
-
-// Define log format
-const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-  winston.format.errors({ stack: true }),
-  winston.format.json(),
-  winston.format.prettyPrint()
-);
-
-// Create logger instance
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: logFormat,
-  transports: [
-    // Write all logs with level 'error' and below to error.log
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error',
-      handleExceptions: true,
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    }),
-    // Write all logs to combined.log
-    new winston.transports.File({
-      filename: 'logs/combined.log',
-      handleExceptions: true,
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    })
-  ],
-  exitOnError: false
-});
-
-// Add console transport for development
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple(),
-      winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        return `${timestamp} [${level}]: ${message} ${
-          Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''
-        }`;
-      })
-    )
-  }));
-}
-
-// Create logs directory if it doesn't exist
-const fs = require('fs');
+const util = require('util');
+const { createWriteStream } = require('fs');
 const path = require('path');
-const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+
+const logFile = path.join(__dirname, '..', 'logs', 'app.log');
+// Ensure logs directory exists (best-effort)
+try {
+  require('fs').mkdirSync(path.dirname(logFile), { recursive: true });
+} catch (e) {
+  // ignore
 }
 
-module.exports = logger;
+const stream = createWriteStream(logFile, { flags: 'a' });
+
+function write(level, args) {
+  const message = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${args.map(a => (typeof a === 'string' ? a : util.inspect(a))).join(' ')}\n`;
+  try { stream.write(message); } catch (e) { /* ignore */ }
+  // Also print to console for developer visibility
+  if (level === 'error') console.error(message);
+  else if (level === 'warn') console.warn(message);
+  else console.log(message);
+}
+
+module.exports = {
+  info: (...args) => write('info', args),
+  warn: (...args) => write('warn', args),
+  error: (...args) => write('error', args),
+  debug: (...args) => write('debug', args),
+};

@@ -88,14 +88,16 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
+      'http://localhost:3000',
       'http://localhost:3002',
+      'http://127.0.0.1:3000',
       'http://127.0.0.1:3002',
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
     // Allow any origin from local network in development
     if (process.env.NODE_ENV !== 'production' && origin) {
-      const isLocalhost = /^http:\/\/localhost:3002$/.test(origin);
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
       if (isLocalhost) {
         return callback(null, true);
       }

@@ -60,7 +60,8 @@ const register = async (req, res, next) => {
       firstName,
       lastName,
       department: department || '',
-      role: role || 'user'
+      role: role || 'user',
+      auditUserId: 1
     });
 
     const newUser = await User.findById(userId);
@@ -217,7 +218,8 @@ const microsoftLogin = async (req, res, next) => {
         firstName,
         lastName,
         department: 'Azure AD',
-        role: 'user'
+        role: 'user',
+        auditUserId: 1
       });
 
       user = await User.findById(userId);
@@ -470,7 +472,8 @@ const createUser = async (req, res, next) => {
       firstName,
       lastName,
       department: department || '',
-      role: role
+      role: role,
+      auditUserId: req.user?.userId || 1
     });
 
     const newUser = await User.findById(userId);

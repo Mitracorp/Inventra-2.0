@@ -92,11 +92,17 @@ const PMOverviewPage = () => {
       });
       if (!response.ok) return;
       const data = await response.json();
-      const normalized = (data || []).map((c) => ({
-        value: c.Customer_ID,
-        label: `${c.Customer_Name} (${c.Customer_Ref_Number})`
-      }));
-      setCustomers(normalized);
+      // Deduplicate by Customer_Name so each customer appears once (branches remain separate)
+      const map = new Map();
+      (data || []).forEach((c) => {
+        if (!map.has(c.Customer_Name)) {
+          map.set(c.Customer_Name, {
+            value: c.Customer_ID,
+            label: `${c.Customer_Name} (${c.Customer_Ref_Number})`
+          });
+        }
+      });
+      setCustomers(Array.from(map.values()));
     };
 
     loadCustomers();
@@ -226,7 +232,11 @@ const PMOverviewPage = () => {
         return d && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
       });
     } else if (type === 'unsigned') {
-      items = pmRecords.filter((pm) => (pm.PM_Status || '').toLowerCase() !== 'completed');
+      const normalizeStatus = (value) => String(value || '').trim().toLowerCase().replace(/\.$/, '');
+      items = pmRecords.filter((pm) => {
+        const normalized = normalizeStatus(pm.PM_Status || pm.Status);
+        return normalized !== 'completed' && normalized !== 'marked as completed';
+      });
       if (unsignedPmFilter !== 'all') {
         if (unsignedPmFilter === '6plus') {
           items = items.filter((pm) => pm.PM_Sequence >= 6);
