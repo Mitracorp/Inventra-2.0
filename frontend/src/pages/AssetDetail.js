@@ -26,6 +26,11 @@ const AssetDetail = () => {
   const [flagRemarks, setFlagRemarks] = useState('');
   const [updatingFlag, setUpdatingFlag] = useState(false);
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
     fetchAssetDetail();
     fetchPMRecords();
@@ -47,7 +52,11 @@ const AssetDetail = () => {
       console.log('🔄 Fetching asset detail for ID:', assetId);
 
       // Fetch complete asset information from backend
-      const response = await fetch(`${API_URL}/assets/detail/${assetId}`);
+      const response = await fetch(`${API_URL}/assets/detail/${assetId}`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -82,7 +91,11 @@ const AssetDetail = () => {
       setLoadingPM(true);
       
       // Fetch PM records for this asset
-      const response = await fetch(`${API_URL}/pm/asset/${assetId}`);
+      const response = await fetch(`${API_URL}/pm/asset/${assetId}`, {
+        headers: {
+          ...getAuthHeaders()
+        }
+      });
       
       if (response.ok) {
         const data = await response.json();
@@ -155,7 +168,10 @@ const AssetDetail = () => {
       setDeletingAck(true);
 
       const response = await fetch(`${API_URL}/pm/${pmId}/delete-acknowledgement`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          ...getAuthHeaders()
+        }
       });
 
       const data = await response.json();
@@ -222,12 +238,11 @@ const AssetDetail = () => {
 
     setUpdatingFlag(true);
     try {
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/assets/id/${assetData.Asset_ID}/flag`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         },
         body: JSON.stringify({
           Is_Flagged: flag ? 1 : 0,

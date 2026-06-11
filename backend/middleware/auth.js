@@ -52,6 +52,17 @@ const authenticateToken = async (req, res, next) => {
       role: decoded.role
     };
 
+    // Set MySQL session variable so DB triggers can record the acting user
+    try {
+      if (decoded.userId) {
+        await executeQuery('SET @current_user_id = ?', [decoded.userId]);
+      } else {
+        await executeQuery('SET @current_user_id = ?', [1]);
+      }
+    } catch (err) {
+      console.warn('Could not set @current_user_id session variable:', err.message || err);
+    }
+
     console.log('Authentication successful for user:', req.user);
     next();
   } catch (error) {

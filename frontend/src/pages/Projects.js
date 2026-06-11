@@ -344,11 +344,11 @@ const Projects = () => {
   const filteredProjects = projects
     .filter(project => {
       // Search filter
-      const matchesSearch = (
+      const matchesSearch = !searchTerm || (
         (project.Customer_Name && project.Customer_Name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (project.Project_Title && project.Project_Title.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (project.Project_Ref_Number && project.Project_Ref_Number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (project.Solution_Principal && project.Solution_Principal.toLowerCase().includes(searchTerm.toLowerCase()))
+        (project.Solution_Principals && project.Solution_Principals.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       
       // Status filter

@@ -458,3 +458,222 @@ Require stack:
 [2026-06-09T01:47:38.327Z] [INFO] User logged in: seed
 [2026-06-09T01:51:42.165Z] [INFO] ✅ Database connected successfully
 [2026-06-09T01:51:42.304Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:12:35.129Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:12:35.212Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:14:04.115Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:14:04.225Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:14:04.230Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T02:14:04.231Z] [INFO] 📍 Environment: development
+[2026-06-09T02:14:04.231Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T02:14:04.231Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T02:38:47.571Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:38:47.989Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:38:47.998Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T02:38:47.998Z] [INFO] 📍 Environment: development
+[2026-06-09T02:38:47.999Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T02:38:47.999Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T02:39:09.869Z] [INFO] User logged in: seed
+[2026-06-09T02:43:33.676Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T02:43:41.037Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:43:41.181Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:43:41.188Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T02:43:41.188Z] [INFO] 📍 Environment: development
+[2026-06-09T02:43:41.189Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T02:43:41.189Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T02:48:19.270Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T02:48:28.874Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:48:29.043Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:48:29.050Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T02:48:29.050Z] [INFO] 📍 Environment: development
+[2026-06-09T02:48:29.050Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T02:48:29.050Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T02:49:04.764Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T02:49:10.412Z] [INFO] ✅ Database connected successfully
+[2026-06-09T02:49:10.541Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T02:49:10.546Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T02:49:10.547Z] [INFO] 📍 Environment: development
+[2026-06-09T02:49:10.547Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T02:49:10.547Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T03:04:20.581Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:04:20.703Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:04:20.712Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T03:04:20.712Z] [INFO] 📍 Environment: development
+[2026-06-09T03:04:20.713Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T03:04:20.713Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T03:04:47.929Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:04:48.485Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:29:21.656Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:29:21.805Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:39:59.276Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:39:59.368Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:41:28.543Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:41:28.644Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:41:28.646Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T03:41:28.646Z] [INFO] 📍 Environment: development
+[2026-06-09T03:41:28.646Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T03:41:28.646Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T03:41:42.657Z] [INFO] User logged in: seed
+[2026-06-09T03:50:22.093Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T03:50:31.655Z] [INFO] ✅ Database connected successfully
+[2026-06-09T03:50:31.798Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T03:50:31.800Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T03:50:31.800Z] [INFO] 📍 Environment: development
+[2026-06-09T03:50:31.800Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T03:50:31.800Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T03:55:09.877Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-09T04:06:00.777Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:06:07.849Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:06:08.023Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:06:08.026Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:06:08.026Z] [INFO] 📍 Environment: development
+[2026-06-09T04:06:08.026Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:06:08.026Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:10:03.851Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:10:14.473Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:10:14.606Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:10:14.608Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:10:14.608Z] [INFO] 📍 Environment: development
+[2026-06-09T04:10:14.608Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:10:14.608Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:19:18.131Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:19:25.699Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:19:26.463Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:19:26.465Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:19:26.466Z] [INFO] 📍 Environment: development
+[2026-06-09T04:19:26.466Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:19:26.466Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:24:38.862Z] [WARN] Projects route query failed: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+[2026-06-09T04:30:05.169Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:30:21.822Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:30:22.026Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:30:22.028Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:30:22.028Z] [INFO] 📍 Environment: development
+[2026-06-09T04:30:22.028Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:30:22.028Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:32:04.248Z] [WARN] Projects route query failed: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+[2026-06-09T04:33:20.095Z] [WARN] Projects route query failed: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+[2026-06-09T04:39:46.250Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:39:54.791Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:39:54.978Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:39:54.980Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:39:54.980Z] [INFO] 📍 Environment: development
+[2026-06-09T04:39:54.980Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:39:54.980Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:41:43.937Z] [ERROR] Projects route query failed: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+[2026-06-09T04:41:43.937Z] [ERROR] Failed to insert project: Cannot add or update a child row: a foreign key constraint fails (`ivmscom_Inventra`.`HISTORY_LOG`, CONSTRAINT `FK_HISTORY_LOG_USER` FOREIGN KEY (`User_ID`) REFERENCES `USER` (`User_ID`) ON UPDATE CASCADE)
+[2026-06-09T04:43:44.744Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T04:43:52.138Z] [INFO] ✅ Database connected successfully
+[2026-06-09T04:43:52.251Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T04:43:52.254Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T04:43:52.254Z] [INFO] 📍 Environment: development
+[2026-06-09T04:43:52.254Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T04:43:52.254Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T04:53:26.995Z] [WARN] Recent activity unavailable, returning empty list: Unknown column 'h.History_ID' in 'field list'
+[2026-06-09T05:10:00.538Z] [INFO] User logged in: seed
+[2026-06-09T05:10:28.056Z] [INFO] User logged in: seed
+[2026-06-09T05:10:37.206Z] [INFO] User logged in: seed
+[2026-06-09T06:37:53.465Z] [INFO] ✅ Database connected successfully
+[2026-06-09T06:37:53.545Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T06:37:53.551Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T06:37:53.551Z] [INFO] 📍 Environment: development
+[2026-06-09T06:37:53.551Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T06:37:53.551Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T06:38:12.682Z] [INFO] User logged in: seed
+[2026-06-09T06:43:46.696Z] [INFO] ✅ Database connected successfully
+[2026-06-09T06:43:46.828Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T06:44:41.455Z] [INFO] ✅ Database connected successfully
+[2026-06-09T06:44:41.578Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T06:44:41.580Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T06:44:41.581Z] [INFO] 📍 Environment: development
+[2026-06-09T06:44:41.581Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T06:44:41.581Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T06:53:24.537Z] [INFO] ✅ Database connected successfully
+[2026-06-09T06:53:24.755Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T06:53:24.758Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T06:53:24.758Z] [INFO] 📍 Environment: development
+[2026-06-09T06:53:24.758Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T06:53:24.758Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T07:03:09.479Z] [INFO] ✅ Database connected successfully
+[2026-06-09T07:03:09.588Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T07:03:09.590Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T07:03:09.591Z] [INFO] 📍 Environment: development
+[2026-06-09T07:03:09.591Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T07:03:09.591Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T07:11:37.843Z] [INFO] User logged in: seed
+[2026-06-09T07:12:22.188Z] [INFO] User logged in: seed
+[2026-06-09T07:36:53.095Z] [INFO] ✅ Database connected successfully
+[2026-06-09T07:36:53.174Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T07:41:09.953Z] [INFO] ✅ Database connected successfully
+[2026-06-09T07:41:10.089Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T07:41:10.091Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T07:41:10.091Z] [INFO] 📍 Environment: development
+[2026-06-09T07:41:10.091Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T07:41:10.091Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T07:44:18.607Z] [INFO] User logged in: seed
+[2026-06-09T07:51:02.128Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T07:51:13.164Z] [INFO] ✅ Database connected successfully
+[2026-06-09T07:51:13.296Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T07:51:13.298Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T07:51:13.298Z] [INFO] 📍 Environment: development
+[2026-06-09T07:51:13.298Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T07:51:13.298Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:06:22.383Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:06:30.817Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:06:31.618Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:06:31.620Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:06:31.620Z] [INFO] 📍 Environment: development
+[2026-06-09T08:06:31.620Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:06:31.620Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:11:59.111Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:12:10.909Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:12:11.033Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:12:11.035Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:12:11.035Z] [INFO] 📍 Environment: development
+[2026-06-09T08:12:11.035Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:12:11.035Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:20:22.189Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:20:28.789Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:20:28.887Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:20:28.889Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:20:28.889Z] [INFO] 📍 Environment: development
+[2026-06-09T08:20:28.889Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:20:28.889Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:35:17.824Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:36:32.626Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:36:32.730Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:36:32.733Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:36:32.733Z] [INFO] 📍 Environment: development
+[2026-06-09T08:36:32.733Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:36:32.733Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:40:23.534Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:40:36.410Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:40:36.491Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:40:36.494Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:40:36.494Z] [INFO] 📍 Environment: development
+[2026-06-09T08:40:36.494Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:40:36.494Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:41:07.165Z] [INFO] User logged in: seed
+[2026-06-09T08:44:33.205Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T08:44:44.453Z] [INFO] ✅ Database connected successfully
+[2026-06-09T08:44:44.537Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T08:44:44.539Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T08:44:44.539Z] [INFO] 📍 Environment: development
+[2026-06-09T08:44:44.539Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T08:44:44.539Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T08:45:19.860Z] [INFO] User logged in: seed
+[2026-06-09T09:03:21.543Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T09:03:30.698Z] [INFO] ✅ Database connected successfully
+[2026-06-09T09:03:30.783Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T09:03:30.789Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T09:03:30.789Z] [INFO] 📍 Environment: development
+[2026-06-09T09:03:30.789Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T09:03:30.789Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T09:19:38.960Z] [INFO] SIGINT received, shutting down gracefully
+[2026-06-09T09:19:48.368Z] [INFO] ✅ Database connected successfully
+[2026-06-09T09:19:48.469Z] [INFO] Audit log cleanup scheduler starting (stub)
+[2026-06-09T09:19:48.475Z] [INFO] 🚀 Inventra Backend Server running on port 5000
+[2026-06-09T09:19:48.476Z] [INFO] 📍 Environment: development
+[2026-06-09T09:19:48.476Z] [INFO] 🌐 CORS enabled for: http://localhost:3000
+[2026-06-09T09:19:48.476Z] [INFO] 🌍 Server accessible on all network interfaces (0.0.0.0)
+[2026-06-09T09:20:10.322Z] [WARN] PM route query failed: Unknown column 'a.Model' in 'field list'
+[2026-06-09T09:20:20.643Z] [WARN] PM route query failed: Unknown column 'a.Model' in 'field list'

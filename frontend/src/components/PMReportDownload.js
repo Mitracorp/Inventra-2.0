@@ -37,34 +37,50 @@ const PMReportDownload = ({ pmId, assetSerialNumber, customerName, variant = 'de
       setLoading(true);
       setError(null);
 
-      // Get PDF info from backend (generates if needed, returns path)
+      // Request PM form; backend may return JSON metadata or a PDF stream.
       const apiUrl = process.env.REACT_APP_API_URL || `${window.location.origin}/api/v1`;
-      const response = await fetch(`${apiUrl}/pm/${pmId}/pdf-info`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${apiUrl}/pm/${pmId}/pdf-info`, {
+        headers: {
+          Accept: 'application/json, application/pdf',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to get PDF info');
+        let message = 'Failed to get PDF info';
+        try {
+          const errorData = await response.json();
+          message = errorData.message || errorData.error || message;
+        } catch (_) {
+          // Ignore JSON parsing failure for non-JSON error bodies.
+        }
+        throw new Error(message);
       }
-      
-      const pdfInfo = await response.json();
-      
-      if (!pdfInfo.success || !pdfInfo.url) {
-        throw new Error('Invalid PDF info received');
+
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+
+      // JSON response path: backend provides URL for report download.
+      if (contentType.includes('application/json')) {
+        const pdfInfo = await response.json();
+
+        if (!pdfInfo.success || !pdfInfo.url) {
+          throw new Error('Invalid PDF info received');
+        }
+
+        const baseUrl = apiUrl.replace('/api/v1', '');
+        const pdfUrl = `${baseUrl}${pdfInfo.url}`;
+
+        window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+        setPdfExists(true);
+        return;
       }
-      
-      // Open PDF via direct static file URL - this preserves the actual filename!
-      const baseUrl = apiUrl.replace('/api/v1', ''); // Remove API prefix
-      const pdfUrl = `${baseUrl}${pdfInfo.url}`;
-      
-      console.log('👁️  Opening PDF with preserved filename:', pdfInfo.filename);
-      console.log('📄 PDF URL:', pdfUrl);
-      
-      // Open PDF directly - browser will show the actual filename!
-      window.open(pdfUrl, '_blank');
-      
-      console.log('✅ PDF opened successfully with filename:', pdfInfo.filename);
-      
-      // After successful view, mark that PDF now exists
+
+      // PDF response path: stream the file directly.
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60000);
       setPdfExists(true);
     } catch (err) {
       console.error('Error opening PM report:', err);

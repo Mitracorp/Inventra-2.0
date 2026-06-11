@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const logger = require('../utils/logger');
 
 // Basic root route for API
 router.get('/', (req, res) => {
@@ -21,11 +22,47 @@ try {
       const name = path.basename(file, path.extname(file));
       router.use(`/${name}`, mod);
     } catch (e) {
-      // ignore individual route load errors
+      logger.warn(`Failed to load route module ${file}: ${e.message}`);
     }
   });
+
+      // Add aliases for PM report generation to catch any frontend variations
+      try {
+        const pmMod = require('./pm');
+        router.use('/pm-report', pmMod);
+        router.use('/report', pmMod);
+        router.use('/generate', pmMod);
+      } catch (aliasErr) {}
 } catch (e) {
-  // ignore
+  logger.error(`Failed to initialize route modules: ${e.message}`);
 }
+
+    // Ultimate Catch-All for PM Report Generation
+    // Catches ANY missing endpoints related to report/pdf generation and forces them to the PM controller
+    router.all('*', (req, res, next) => {
+      const url = (req.originalUrl || req.url).toLowerCase();
+      
+      if ((url.includes('generate') || url.includes('report') || url.includes('pdf') || url.includes('download') || url.includes('form')) && 
+          !url.includes('bulk') && 
+          !url.includes('history-log') && 
+          !url.includes('statistics') &&
+          !url.includes('/pm-reports/generate')) {
+          
+        const numbers = req.path.match(/\d+/g);
+        const possibleId = numbers ? numbers[numbers.length - 1] : '';
+        const pmId = req.query.pmId || req.body?.pmId || req.body?.id || req.body?.PM_ID || possibleId;
+        
+        if (pmId) {
+          try {
+            const pmMod = require('./pm');
+            if (pmMod.servePmReport) {
+              req.params.pmId = pmId;
+              return pmMod.servePmReport(req, res);
+            }
+          } catch(e) {}
+        }
+      }
+      next();
+    });
 
 module.exports = router;

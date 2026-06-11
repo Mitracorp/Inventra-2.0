@@ -814,13 +814,12 @@ const AddAsset = () => {
     setUserHasInteracted(true); // User has interacted by selecting
     setProjectSearchError(null); // Clear any errors
     
-    // Set project data with fresh values (don't spread old projectData to avoid stale state)
-    // Update project_reference_num first - this will trigger fetchProjectByReference via useEffect
+    // Set project data directly from the selected object to avoid brittle secondary API fetches
     setProjectData({
       project_reference_num: project.Project_Ref_Number || '',
-      customer_name: '', // EMPTY - let API fetch it
-      customer_reference_number: '',
-      project_title: ''
+      customer_name: project.Customer_Name || '', 
+      customer_reference_number: project.Customer_Ref_Number || '',
+      project_title: project.Project_Title || ''
     });
     setProjectSearchTerm(project.Project_Ref_Number || '');
     setShowProjectDropdown(false);
@@ -1341,9 +1340,11 @@ const AddAsset = () => {
                     }))}
                     value={asset.category}
                     onChange={(selectedValue) => setAsset({ ...asset, category: selectedValue || '' })}
+                    onChangeEvent={(e) => setAsset({ ...asset, category: e.target.value || '' })}
                     placeholder="Type to search or select category..."
                     searchPlaceholder="Search categories..."
                     getOptionLabel={(option) => option.label}
+                    renderOption={(option) => option.label}
                     getOptionValue={(option) => option.value}
                     required
                   />
@@ -1392,9 +1393,11 @@ const AddAsset = () => {
                     }))}
                     value={asset.model}
                     onChange={(selectedValue) => setAsset({ ...asset, model: selectedValue || '' })}
+                    onChangeEvent={(e) => setAsset({ ...asset, model: e.target.value || '' })}
                     placeholder="Type to search or select model..."
                     searchPlaceholder="Search models..."
                     getOptionLabel={(option) => option.label}
+                    renderOption={(option) => option.label}
                     getOptionValue={(option) => option.value}
                     required
                   />
@@ -1506,6 +1509,9 @@ const AddAsset = () => {
                       value={softwareInput}
                       onChange={(selectedValue) => {
                         setSoftwareInput(selectedValue || '');
+                      }}
+                      onChangeEvent={(e) => {
+                        setSoftwareInput(e.target.value || '');
                       }}
                       placeholder="Type to search or select software..."
                       searchPlaceholder="Search software..."

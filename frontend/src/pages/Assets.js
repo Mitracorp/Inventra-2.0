@@ -255,10 +255,14 @@ const Assets = ({ onDelete }) => {
           throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
         const result = await response.json();
-        
-        // Handle paginated response
-        setAllAssets(result.data || result);
-        setTotalAssets(result.pagination?.total || result.length);
+        const responseRows = result.data || result;
+        const validAssets = Array.isArray(responseRows)
+          ? responseRows.filter((asset) => asset && asset.Asset_ID !== null && asset.Asset_ID !== undefined)
+          : [];
+
+        // Guard against orphan inventory rows (Asset_ID null) that cannot open detail pages.
+        setAllAssets(validAssets);
+        setTotalAssets(result.pagination?.total || validAssets.length);
         setLastFetchTime(now);
         
         // Create columns based on new database schema
@@ -335,6 +339,11 @@ const Assets = ({ onDelete }) => {
 
   // Handle checkbox selection
   const handleSelectAsset = useCallback((assetId) => {
+    if (assetId === null || assetId === undefined) {
+      toast.error('This row has no valid asset ID and cannot be opened.');
+      return;
+    }
+
     setSelectedAssets(prev => {
       if (prev.includes(assetId)) {
         return prev.filter(id => id !== assetId);
@@ -431,7 +440,9 @@ const Assets = ({ onDelete }) => {
       setSelectedAssets([]);
       setSelectAll(false);
     } else {
-      const allAssetIds = paginatedAssets.map(asset => asset.Asset_ID);
+      const allAssetIds = paginatedAssets
+        .map(asset => asset.Asset_ID)
+        .filter(id => id !== null && id !== undefined);
       setSelectedAssets(allAssetIds);
       setSelectAll(true);
     }

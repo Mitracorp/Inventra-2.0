@@ -118,7 +118,7 @@ const PMOverviewPage = () => {
       }
 
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/pm/customers/${selectedCustomer}/branches`, {
+      const response = await fetch(`${API_URL}/pm/customers/${encodeURIComponent(selectedCustomer)}/branches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!response.ok) return;
@@ -143,7 +143,7 @@ const PMOverviewPage = () => {
       setLoading(true);
       try {
         const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_URL}/pm/filter?customerId=${selectedCustomer}&branch=${encodeURIComponent(selectedBranch)}`, {
+        const response = await fetch(`${API_URL}/pm/filter?customerId=${encodeURIComponent(selectedCustomer)}&branch=${encodeURIComponent(selectedBranch)}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!response.ok) throw new Error('Failed to fetch PM records');

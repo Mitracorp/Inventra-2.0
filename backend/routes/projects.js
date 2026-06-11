@@ -6,11 +6,11 @@ const logger = require('../utils/logger');
 
 const safeQuery = async (sql, params = []) => {
   try {
-    const [rows] = await pool.execute(sql, params);
-    return rows;
+    const [result] = await pool.execute(sql, params);
+    return result;
   } catch (error) {
-    logger.warn('Projects route query failed:', error.message || error);
-    return [];
+    logger.error('Projects route query failed:', error.message || error);
+    throw error;
   }
 };
 
@@ -44,7 +44,13 @@ router.get('/', authenticateToken, async (req, res) => {
          p.file_path_logo,
          c.Customer_Ref_Number,
          c.Customer_Name,
-         c.Branch
+         c.Branch,
+         (
+           SELECT GROUP_CONCAT(CONCAT(sp.SP_Name, '|', COALESCE(psb.\`Support Type\`, '')) SEPARATOR '||')
+           FROM PROJECT_SP_BRIDGE psb
+           INNER JOIN SOLUTION_PRINCIPAL sp ON sp.SP_ID = psb.SP_ID
+           WHERE psb.Project_ID = p.Project_ID
+         ) AS Solution_Principals
        FROM PROJECT p
        LEFT JOIN (
          SELECT
@@ -131,7 +137,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
        p.file_path_logo,
        c.Customer_Ref_Number,
        c.Customer_Name,
-       c.Branch
+       c.Branch,
+       (
+         SELECT GROUP_CONCAT(CONCAT(sp.SP_Name, '|', COALESCE(psb.\`Support Type\`, '')) SEPARATOR '||')
+         FROM PROJECT_SP_BRIDGE psb
+         INNER JOIN SOLUTION_PRINCIPAL sp ON sp.SP_ID = psb.SP_ID
+         WHERE psb.Project_ID = p.Project_ID
+       ) AS Solution_Principals
      FROM PROJECT p
      LEFT JOIN (
        SELECT
@@ -218,6 +230,18 @@ router.put('/:id/branches', authenticateToken, async (req, res) => {
           branch
         ]
       );
+
+       const custRows = await safeQuery(
+         'SELECT Customer_ID FROM CUSTOMER WHERE Customer_Ref_Number = ? AND Customer_Name = ? AND Branch = ? LIMIT 1',
+         [customer.Customer_Ref_Number, customer.Customer_Name, branch]
+       );
+       if (custRows.length > 0) {
+         const custId = custRows[0].Customer_ID;
+         await safeQuery(
+           'INSERT INTO INVENTORY (Project_ID, Customer_ID, Asset_ID) SELECT ?, ?, NULL FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM INVENTORY WHERE Project_ID = ? AND Customer_ID = ? AND Asset_ID IS NULL)',
+           [projectId, custId, projectId, custId]
+         );
+       }
     }
   }
 
@@ -240,12 +264,23 @@ router.post('/', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Project_Ref_Number and Project_Title are required' });
   }
 
-  const result = await safeQuery(
-    'INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [Project_Ref_Number, Project_Title, Warranty || null, Preventive_Maintenance || null, PM_Frequency || 2, Start_Date || null, End_Date || null, Antivirus || null]
-  );
+  let projectId = null;
+  try {
+    const result = await safeQuery(
+      'INSERT INTO PROJECT (Project_Ref_Number, Project_Title, Warranty, Preventive_Maintenance, PM_Frequency, Start_Date, End_Date, Antivirus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [Project_Ref_Number, Project_Title, Warranty || null, Preventive_Maintenance || null, PM_Frequency || 2, Start_Date || null, End_Date || null, Antivirus || null]
+    );
 
-  const projectId = result?.insertId;
+    projectId = result?.insertId || null;
+    if (!projectId) {
+      logger.warn('Project insert did not return an insertId', { Project_Ref_Number, Project_Title });
+      return res.status(500).json({ success: false, message: 'Failed to create project' });
+    }
+  } catch (err) {
+    // Surface DB errors (e.g., duplicate key) to the client for debugging
+    logger.error('Failed to insert project:', err.message || err);
+    return res.status(500).json({ success: false, message: 'Database error while creating project', error: err.message || String(err) });
+  }
 
   if (projectId && incomingCustomer?.Customer_Ref_Number && incomingCustomer?.Customer_Name) {
     const branches = Array.isArray(incomingCustomer.branches)
@@ -270,6 +305,18 @@ router.post('/', authenticateToken, async (req, res) => {
           branch
         ]
       );
+
+       const custRows = await safeQuery(
+         'SELECT Customer_ID FROM CUSTOMER WHERE Customer_Ref_Number = ? AND Customer_Name = ? AND Branch = ? LIMIT 1',
+         [incomingCustomer.Customer_Ref_Number, incomingCustomer.Customer_Name, branch]
+       );
+       if (custRows.length > 0) {
+         const custId = custRows[0].Customer_ID;
+         await safeQuery(
+           'INSERT INTO INVENTORY (Project_ID, Customer_ID, Asset_ID) SELECT ?, ?, NULL FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM INVENTORY WHERE Project_ID = ? AND Customer_ID = ? AND Asset_ID IS NULL)',
+           [projectId, custId, projectId, custId]
+         );
+       }
     }
   }
 

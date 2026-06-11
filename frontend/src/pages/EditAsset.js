@@ -75,6 +75,11 @@ const EditAsset = () => {
     End_Date: ''
   });
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Fetch asset data on component mount
   useEffect(() => {
     fetchAssetData();
@@ -95,10 +100,9 @@ const EditAsset = () => {
       
       console.log('🔄 Fetching asset data for editing, ID:', id);
       
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/assets/detail/${id}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       
@@ -247,12 +251,10 @@ const EditAsset = () => {
     try {
       console.log('📥 Fetching dropdown options...');
       
-      const token = localStorage.getItem('authToken');
-      
       // Fetch Windows versions
       const windowsRes = await fetch(`${API_URL}/options/windows`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       if (windowsRes.ok) {
@@ -264,7 +266,7 @@ const EditAsset = () => {
       // Fetch Office versions
       const officeRes = await fetch(`${API_URL}/options/office`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       if (officeRes.ok) {
@@ -275,7 +277,7 @@ const EditAsset = () => {
       // Fetch Antivirus options
       const antivirusRes = await fetch(`${API_URL}/options/antivirus`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       if (antivirusRes.ok) {
@@ -286,7 +288,7 @@ const EditAsset = () => {
       // Fetch Software options
       const softwareRes = await fetch(`${API_URL}/options/software`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       if (softwareRes.ok) {
@@ -368,10 +370,9 @@ const EditAsset = () => {
   const fetchBranchesForCustomer = async (customerRefNumber) => {
     try {
       console.log('🔍 Fetching branches for customer ref:', customerRefNumber);
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/projects/branches-by-ref/${encodeURIComponent(customerRefNumber)}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         }
       });
       
@@ -429,7 +430,7 @@ const EditAsset = () => {
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: body
       });
 
@@ -505,12 +506,11 @@ const EditAsset = () => {
         }))
       };
       
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/assets/id/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...getAuthHeaders()
         },
         body: JSON.stringify(updateData)
       });

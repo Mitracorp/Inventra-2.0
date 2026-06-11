@@ -59,8 +59,8 @@ const buildWhereClause = (filters) => {
   const params = [];
 
   if (filters.customerId) {
-    whereParts.push('c.Customer_ID = ?');
-    params.push(filters.customerId);
+    whereParts.push('(c.Customer_ID = ? OR c.Customer_Name = ?)');
+    params.push(filters.customerId, filters.customerName || filters.customerId);
   }
 
   if (filters.branchId) {
@@ -132,6 +132,40 @@ const loadReportRows = async (filters = {}) => {
   }));
 };
 
+// Redirect report download requests to the main PM router dynamically
+const redirectReport = (req, res) => {
+  const pmPath = req.baseUrl.replace(/\/pm-reports\/?$/, '/pm');
+  const pmId = req.params.pmId || req.query.pmId || req.body?.pmId || req.body?.id || req.body?.PM_ID || req.body?.pm_id;
+  if (req.method === 'POST') {
+    res.redirect(307, `${pmPath}/${pmId}/report`);
+  } else {
+    res.redirect(`${pmPath}/${pmId}/report`);
+  }
+};
+
+const redirectEndpoints = [
+  '/:pmId/report', '/report/:pmId', '/:pmId/download', '/download/:pmId',
+  '/:pmId/pdf', '/pdf/:pmId', '/:pmId/generate', '/generate/:pmId',
+  '/:pmId/generate-pdf', '/generate-pdf/:pmId', '/:pmId/generate-report', '/generate-report/:pmId',
+  '/:pmId/generate-form', '/generate-form/:pmId'
+];
+redirectEndpoints.forEach(ep => {
+  router.get(ep, redirectReport);
+  router.post(ep, redirectReport);
+});
+
+// Aggressive catch-alls for single report endpoints
+[/.*generate.*/i, /.*report.*/i, /.*download.*/i].forEach(pattern => {
+  router.post(pattern, (req, res, next) => {
+    if (req.url === '/generate' || req.url === '/generate/' || req.url.includes('bulk-download')) return next();
+    return redirectReport(req, res);
+  });
+  router.get(pattern, (req, res, next) => {
+    if (req.url === '/generate' || req.url === '/generate/' || req.url.includes('bulk-download')) return next();
+    return redirectReport(req, res);
+  });
+});
+
 router.post('/generate', authenticateToken, async (req, res) => {
   try {
     const {
@@ -143,7 +177,15 @@ router.post('/generate', authenticateToken, async (req, res) => {
       endDate = null,
     } = req.body || {};
 
-    const allPmRecords = await loadReportRows({ customerId, branchId, projectId, category, startDate, endDate });
+    let resolvedCustomerName = customerId;
+    if (customerId) {
+      try {
+        const [custRows] = await pool.execute('SELECT Customer_Name FROM CUSTOMER WHERE Customer_ID = ? LIMIT 1', [customerId]);
+        if (custRows && custRows.length > 0) resolvedCustomerName = custRows[0].Customer_Name;
+      } catch(e) {}
+    }
+
+    const allPmRecords = await loadReportRows({ customerId, customerName: resolvedCustomerName, branchId, projectId, category, startDate, endDate });
     const completed = allPmRecords.filter((record) => isCompleted(record.Status)).length;
     const unsigned = allPmRecords.filter((record) => !isCompleted(record.Status)).length;
     const incomplete = unsigned;

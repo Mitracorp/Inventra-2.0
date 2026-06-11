@@ -608,10 +608,10 @@ const PreventiveMaintenance = () => {
           // Calculate counts per customer (only count records with actual PM_ID)
           const counts = {};
           data.forEach(customer => {
-            const count = allRecords.filter(record => 
-              Number(record.Customer_ID) === Number(customer.Customer_ID) && record.PM_ID != null
+            const count = allRecords.filter(record =>
+              record.Customer_Name === customer.Customer_Name && record.PM_ID != null
             ).length;
-            console.log(`Customer ${customer.Customer_Name} (Ref: ${customer.Customer_ID}): ${count} PM records`);
+            console.log(`Customer ${customer.Customer_Name}: ${count} PM records`);
             counts[customer.Customer_ID] = count;
           });
           setCustomerPMCounts(counts);
@@ -632,7 +632,7 @@ const PreventiveMaintenance = () => {
   const fetchBranches = async (customerId) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/pm/customers/${customerId}/branches`, {
+      const response = await fetch(`${API_URL}/pm/customers/${encodeURIComponent(customerId)}/branches`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -660,11 +660,15 @@ const PreventiveMaintenance = () => {
         pmRecordsForCounting = allPMRecordsForCounts;
       }
       
+      // Find the customer name for the given customerId
+      const selectedCustomerObj = customers.find(c => String(c.Customer_ID) === String(customerId));
+      const customerName = selectedCustomerObj ? selectedCustomerObj.Customer_Name : null;
+
       // Calculate PM counts for each branch from stored records (only count actual PM records)
       const counts = {};
       data.forEach(branch => {
-        const count = pmRecordsForCounting.filter(record => 
-          Number(record.Customer_ID) === Number(customerId) && record.Branch === branch && record.PM_ID != null
+        const count = pmRecordsForCounting.filter(record =>
+          (record.Customer_Name === customerName || Number(record.Customer_ID) === Number(customerId)) && record.Branch === branch && record.PM_ID != null
         ).length;
         console.log(`Branch ${branch}: ${count} PM records (Customer Ref: ${customerId})`);
         counts[branch] = count;
@@ -679,7 +683,7 @@ const PreventiveMaintenance = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/pm/filter?customerId=${customerId}&branch=${encodeURIComponent(branch)}`, {
+      const response = await fetch(`${API_URL}/pm/filter?customerId=${encodeURIComponent(customerId)}&branch=${encodeURIComponent(branch)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1388,7 +1392,12 @@ const PreventiveMaintenance = () => {
     
     // Fetch checklist items for this asset's category
     try {
-      const response = await fetch(`${API_URL}/pm/all-checklist/${asset.Category_ID}`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/pm/all-checklist/${asset.Category_ID}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch checklist');
       const data = await response.json();
       setChecklistItems(data);
